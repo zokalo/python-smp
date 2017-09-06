@@ -1,27 +1,9 @@
-from utils.apiclient import BaseApiClient, ApiRequest, ApiError, DEFAULT_TIMEOUT
+from utils.apiclient import BaseApiClient, ApiError
+from utils.apiclient.mixins import HelperMethodsMixin
 
 
-class SmpApiClient(BaseApiClient):
+class SmpApiClient(HelperMethodsMixin, BaseApiClient):
     base_url = 'https://api.smp.io/'
-
-    def get(self, namespace, id=None, timeout=DEFAULT_TIMEOUT, **params):
-        if id is None:
-            path = namespace
-        else:
-            path = '{}/{}'.format(namespace, id)
-        return super(SmpApiClient, self).request(ApiRequest('GET', path, params=params), timeout=timeout)
-
-    def post(self, namespace, data=None, timeout=DEFAULT_TIMEOUT, **params):
-        path = namespace
-        return super(SmpApiClient, self).request(ApiRequest('POST', path, json=data, params=params), timeout=timeout)
-
-    def put(self, namespace, id, data=None, timeout=DEFAULT_TIMEOUT, **params):
-        path = '{}/{}'.format(namespace, id)
-        return super(SmpApiClient, self).request(ApiRequest('PUT', path, json=data, params=params), timeout=timeout)
-
-    def delete(self, namespace, id, timeout=DEFAULT_TIMEOUT, **params):
-        path = '{}/{}'.format(namespace, id)
-        return super(SmpApiClient, self).request(ApiRequest('DELETE', path, params=params), timeout=timeout)
 
     def clean_response(self, response, request):
         try:
