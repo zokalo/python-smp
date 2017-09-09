@@ -3,24 +3,13 @@ import datetime
 import jwt
 
 
-def create_jwt(app_id, app_secret, subowner_id=None, duration=None):
+def create_jwt(app_id, app_secret, user_id=None, scopes=None, duration=None):
     if duration is None:
         duration = datetime.timedelta(minutes=5)
 
     return jwt.encode({
         'iss': app_id,
-        'sub': subowner_id,
-        # 'scp': [],  # TODO: set scope
-        'exp': datetime.datetime.utcnow() + duration,
-    }, app_secret, algorithm='HS256')
-
-
-def create_app_jwt(app_id, app_secret, duration=None):
-    if duration is None:
-        duration = datetime.timedelta(minutes=5)
-
-    return jwt.encode({
-        'iss': app_id,
-        # 'scp': [],  # TODO: set scope
+        'sub': user_id,
+        'scp': scopes,
         'exp': datetime.datetime.utcnow() + duration,
     }, app_secret, algorithm='HS256')
