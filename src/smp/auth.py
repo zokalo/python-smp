@@ -1,9 +1,9 @@
 import datetime
 
-import jwt
-
 
 def create_jwt(app_id, app_secret, user_id=None, scopes=None, duration=None):
+    import jwt
+
     if duration is None:
         duration = datetime.timedelta(minutes=5)
 
