@@ -1,6 +1,7 @@
 import enum
 
 
+# TODO: rename to Site (to not to collide with microService)
 @enum.unique
 class Service(enum.IntEnum):
     facebook = 1
