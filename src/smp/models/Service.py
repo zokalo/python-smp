@@ -19,6 +19,7 @@ class Service(enum.IntEnum):
     slack = 14
     vk = 15
     ok = 16
+    bitly = 17
 
     @classmethod
     def as_choices(cls):
