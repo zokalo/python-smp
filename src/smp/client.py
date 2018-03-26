@@ -20,11 +20,39 @@ class SmpApiClient(HelperMethodsMixin, BaseApiClient, metaclass=SmpApiClientMeta
         try:
             super(SmpApiClient, self).clean_response(response, request)
         except ApiError as err:
-            if response.headers.get('content-type') == 'application/json':
+            if get_content_type(response) == 'application/json':
                 err.data = response.json()  # TODO: surround with try..except
             raise err
 
         if request.raw_response:
             return response
-        else:
+        elif get_content_type(response) == 'application/json':
             return response.json()
+        else:
+            return response.content
+
+    def get_media_client(self, credential, medium_id=None):
+        return MediaClient(credential=credential, session=self.session, medium_id=medium_id)
+
+
+class MediaClient(SmpApiClient):
+    def __init__(self, *, credential, session=None, medium_id=None):
+        super().__init__()
+        assert medium_id or credential['account_page_id']
+
+        self.credential = credential
+        if session is not None:
+            self.session = session
+        if medium_id is None:
+            medium_id = self.get(f'page/v1/by-id/{credential["account_page_id"]}')['medium_id']
+        self.medium_id = medium_id
+        self.base_url = self.base_url + f'client-{medium_id}/'
+
+
+def get_content_type(response):
+    header = response.headers.get('content-type')
+    if not header:
+        return None
+
+    bits = header.split(';', maxsplit=1)
+    return bits[0].strip()
