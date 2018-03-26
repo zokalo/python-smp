@@ -2,7 +2,7 @@ import enum
 
 
 @enum.unique
-class AccessType(enum.IntEnum):
+class AccountCredentialType(enum.IntEnum):
     token = 1
     cookies = 2
 
