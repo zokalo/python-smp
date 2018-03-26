@@ -1,9 +1,6 @@
 import datetime
 
 
-undefined_user = type('undefined_user', (), {})()
-
-
 def create_jwt(app_id, app_secret, user_id=None, scopes=None, duration=None):
     import jwt
 
@@ -16,7 +13,10 @@ def create_jwt(app_id, app_secret, user_id=None, scopes=None, duration=None):
         'exp': datetime.datetime.utcnow() + duration,
     }
 
-    if user_id is not undefined_user:
+    if user_id is not create_jwt.undefined_user:
         payload['sub'] = user_id
 
     return jwt.encode(payload, app_secret, algorithm='HS256')
+
+
+create_jwt.undefined_user = type('undefined_user', (), {})()
