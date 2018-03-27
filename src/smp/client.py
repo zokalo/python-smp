@@ -1,4 +1,4 @@
-from utils.apiclient import BaseApiClient, ApiError, ApiRequest
+from utils.apiclient import BaseApiClient, ApiError, ApiRequest, DEFAULT_TIMEOUT
 from utils.apiclient.mixins import HelperMethodsMixin
 
 
@@ -38,7 +38,7 @@ class SmpApiClient(HelperMethodsMixin, BaseApiClient, metaclass=SmpApiClientMeta
 class MediaClient(SmpApiClient):
     def __init__(self, *, credential, session=None, medium_id=None):
         super().__init__()
-        assert medium_id or credential['account_page_id']
+        assert medium_id or credential.get('account_page_id')
 
         self.credential = credential
         if session is not None:
@@ -47,6 +47,12 @@ class MediaClient(SmpApiClient):
             medium_id = self.get(f'page/v1/by-id/{credential["account_page_id"]}')['medium_id']
         self.medium_id = medium_id
         self.base_url = self.base_url + f'client-{medium_id}/'
+
+    def request(self, request, timeout=DEFAULT_TIMEOUT):
+        if request.json is None:
+            request.json = {}
+        request.json.setdefault('credential', self.credential)
+        return super(MediaClient, self).request(request, timeout=timeout)
 
 
 def get_content_type(response):
