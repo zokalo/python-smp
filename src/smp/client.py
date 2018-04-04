@@ -1,5 +1,5 @@
-from utils.apiclient import BaseApiClient, ApiError, ApiRequest, DEFAULT_TIMEOUT
-from utils.apiclient.mixins import HelperMethodsMixin
+from httpapiclient import BaseApiClient, ApiError, ApiRequest, DEFAULT_TIMEOUT
+from httpapiclient.mixins import HelperMethodsMixin
 
 
 class Request(ApiRequest):
