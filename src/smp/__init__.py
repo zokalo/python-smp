@@ -1,2 +1,4 @@
-from . import auth  # noqa
-from .client import SmpApiClient  # noqa
+# flake8: noqa: F401
+
+from . import auth
+from .client import SmpApiClient

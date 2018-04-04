@@ -18,7 +18,7 @@ class SmpApiClient(HelperMethodsMixin, BaseApiClient, metaclass=SmpApiClientMeta
 
     def clean_response(self, response, request):
         try:
-            super(SmpApiClient, self).clean_response(response, request)
+            super().clean_response(response, request)
         except ApiError as err:
             if get_content_type(response) == 'application/json':
                 err.data = response.json()  # TODO: surround with try..except
@@ -52,7 +52,7 @@ class MediaClient(SmpApiClient):
         if request.json is None:
             request.json = {}
         request.json.setdefault('credential', self.credential)
-        return super(MediaClient, self).request(request, timeout=timeout)
+        return super().request(request, timeout=timeout)
 
 
 def get_content_type(response):
