@@ -31,22 +31,19 @@ class SmpApiClient(HelperMethodsMixin, BaseApiClient, metaclass=SmpApiClientMeta
         else:
             return response.content
 
-    def get_media_client(self, credential, medium_id=None):
-        return MediaClient(credential=credential, session=self.session, medium_id=medium_id)
+    def get_media_client(self, credential):
+        return MediaClient(credential=credential, session=self.session)
 
 
 class MediaClient(SmpApiClient):
-    def __init__(self, *, credential, session=None, medium_id=None):
+    def __init__(self, *, credential, session=None):
         super().__init__()
-        assert medium_id or credential.get('medium_id')
 
         self.credential = credential
         if session is not None:
             self.session = session
-        if medium_id is None:
-            medium_id = credential['medium_id']
-        self.medium_id = medium_id
-        self.base_url = self.base_url + f'client-{medium_id}/'
+        self.medium_id = credential['medium_id']
+        self.base_url = self.base_url + f'client-{self.medium_id}/'
 
     def request(self, request, timeout=DEFAULT_TIMEOUT):
         if request.json is None:
