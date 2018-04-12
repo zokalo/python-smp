@@ -1,3 +1,5 @@
+import copy
+
 from httpapiclient import BaseApiClient, ApiError, ApiRequest, DEFAULT_TIMEOUT
 from httpapiclient.mixins import HelperMethodsMixin
 
@@ -39,10 +41,14 @@ class MediaClient(SmpApiClient):
     def __init__(self, *, credential, session=None):
         super().__init__()
 
-        self.credential = credential
+        self.credential = copy.copy(credential)
         if session is not None:
             self.session = session
-        self.medium_id = credential['medium_id']
+
+        if not self.credential.get('app') and self.credential['app_id']:
+            self.credential['app'] = self.get(f'apps/v1/by-id/{self.credential["app_id"]}')
+
+        self.medium_id = self.credential['medium_id']
         self.base_url = self.base_url + f'client-{self.medium_id}/'
 
     def request(self, request, timeout=DEFAULT_TIMEOUT):
