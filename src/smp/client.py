@@ -62,14 +62,11 @@ class SmpApiClient(HelperMethodsMixin, BaseApiClient, metaclass=SmpApiClientMeta
                         'account_page_id': account_page_id,
                         'permissions': permissions,
                     })
-                except self.ClientError as e:
-                    if e.level == 'http' and e.code == 404:
-                        if fail_silently:
-                            return NoMatchingCredential()
-                        else:
-                            raise NoMatchingCredential() from e
+                except self.NotFoundError as e:
+                    if fail_silently:
+                        return NoMatchingCredential()
                     else:
-                        raise e
+                        raise NoMatchingCredential() from e
 
                 client = self.get_media_client(credential)
 
