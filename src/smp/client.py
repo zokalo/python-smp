@@ -100,8 +100,8 @@ class MediaClient(SmpApiClient):
         if not self.credential.get('app') and self.credential['app_id']:
             self.credential['app'] = self.get(f'apps/v1/by-id/{self.credential["app_id"]}')
 
-        self.medium_id = self.credential['medium_id']
-        self.base_url = self.base_url + f'client-{self.medium_id}/'
+        self.medium = self.credential['medium']
+        self.base_url = self.base_url + f'client-{self.medium}/'
 
     def request(self, request, timeout=DEFAULT_TIMEOUT):
         if request.json is None:
