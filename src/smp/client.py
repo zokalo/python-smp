@@ -3,8 +3,6 @@ from __future__ import print_function, division, absolute_import, unicode_litera
 import copy
 import functools
 
-import six
-
 from .exceptions import NoMatchingCredential
 
 from httpapiclient import BaseApiClient, ApiError, ApiRequest, DEFAULT_TIMEOUT
@@ -17,11 +15,7 @@ class Request(ApiRequest):
         super(Request, self).__init__(*args, **kwargs)
 
 
-class SmpApiClientMetaClass(type(HelperMethodsMixin), type(BaseApiClient)):
-    pass
-
-
-class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient, six.with_metaclass(SmpApiClientMetaClass)):
+class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
     base_url = 'https://api.smp.io/'
     request_class = Request
 

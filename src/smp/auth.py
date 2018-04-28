@@ -21,4 +21,4 @@ def create_jwt(app_id, app_secret, user_id=None, scopes=None, duration=None):
     return jwt.encode(payload, app_secret, algorithm='HS256')
 
 
-create_jwt.undefined_user = type('undefined_user', (), {})()
+create_jwt.undefined_user = type(b'undefined_user', (), {})()
