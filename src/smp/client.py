@@ -4,7 +4,7 @@ import functools
 from .exceptions import NoMatchingCredential
 
 from httpapiclient import BaseApiClient, ApiError, ApiRequest, DEFAULT_TIMEOUT
-from httpapiclient.mixins import HelperMethodsMixin
+from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
 
 
 class Request(ApiRequest):
@@ -17,31 +17,9 @@ class SmpApiClientMetaClass(type(HelperMethodsMixin), type(BaseApiClient)):
     pass
 
 
-class SmpApiClient(HelperMethodsMixin, BaseApiClient, metaclass=SmpApiClientMetaClass):
+class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient, metaclass=SmpApiClientMetaClass):
     base_url = 'https://api.smp.io/'
     request_class = Request
-
-    # TODO: merge with JsonResponseMixin
-    def clean_response(self, response, request):
-        try:
-            super().clean_response(response, request)
-        except ApiError as err:
-            if get_content_type(response) == 'application/json':
-                try:
-                    err.data = response.json()
-                except ValueError:
-                    pass
-            raise err
-
-        if request.raw_response:
-            return response
-        elif get_content_type(response) == 'application/json':
-            try:
-                return response.json()
-            except ValueError as e:
-                raise self.ServerError(e, level='json')
-        else:
-            return response.content
 
     def get_media_client(self, credential):
         return MediaClient(credential=credential, session=self.session)
@@ -115,12 +93,3 @@ class MediaClient(SmpApiClient):
             request.json = {}
         request.json.setdefault('credential', self.credential)
         return super().request(request, timeout=timeout)
-
-
-def get_content_type(response):
-    header = response.headers.get('content-type')
-    if not header:
-        return None
-
-    bits = header.split(';', maxsplit=1)
-    return bits[0].strip()
