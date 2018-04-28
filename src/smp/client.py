@@ -13,11 +13,7 @@ class Request(ApiRequest):
         super().__init__(*args, **kwargs)
 
 
-class SmpApiClientMetaClass(type(HelperMethodsMixin), type(BaseApiClient)):
-    pass
-
-
-class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient, metaclass=SmpApiClientMetaClass):
+class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
     base_url = 'https://api.smp.io/'
     request_class = Request
 
