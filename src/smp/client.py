@@ -1,5 +1,9 @@
+from __future__ import print_function, division, absolute_import, unicode_literals
+
 import copy
 import functools
+
+import six
 
 from .exceptions import NoMatchingCredential
 
@@ -10,14 +14,14 @@ from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
 class Request(ApiRequest):
     def __init__(self, *args, **kwargs):
         self.raw_response = kwargs.pop('raw_response', False)
-        super().__init__(*args, **kwargs)
+        super(Request, self).__init__(*args, **kwargs)
 
 
 class SmpApiClientMetaClass(type(HelperMethodsMixin), type(BaseApiClient)):
     pass
 
 
-class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient, metaclass=SmpApiClientMetaClass):
+class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient, six.with_metaclass(SmpApiClientMetaClass)):
     base_url = 'https://api.smp.io/'
     request_class = Request
 
@@ -47,11 +51,11 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient, metacla
                         'account_page_id': account_page_id,
                         'permissions': permissions,
                     })
-                except self.NotFoundError as e:
+                except self.NotFoundError:
                     if fail_silently:
                         return NoMatchingCredential()
                     else:
-                        raise NoMatchingCredential() from e
+                        raise NoMatchingCredential()
 
                 client = self.get_media_client(credential)
 
@@ -75,21 +79,21 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient, metacla
 
 
 class MediaClient(SmpApiClient):
-    def __init__(self, *, credential, session=None):
-        super().__init__()
+    def __init__(self, credential, session=None):
+        super(MediaClient, self).__init__()
 
         self.credential = copy.copy(credential)
         if session is not None:
             self.session = session
 
         if not self.credential.get('app') and self.credential['app_id']:
-            self.credential['app'] = self.get(f'apps/v1/by-id/{self.credential["app_id"]}')
+            self.credential['app'] = self.get('apps/v1/by-id/' + self.credential['app_id'])
 
         self.medium = self.credential['medium']
-        self.base_url = self.base_url + f'client-{self.medium}/'
+        self.base_url = self.base_url + 'client-{}/'.format(self.medium)
 
     def request(self, request, timeout=DEFAULT_TIMEOUT):
         if request.json is None:
             request.json = {}
         request.json.setdefault('credential', self.credential)
-        return super().request(request, timeout=timeout)
+        return super(MediaClient, self).request(request, timeout=timeout)
