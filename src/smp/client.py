@@ -21,18 +21,25 @@ class SmpApiClient(HelperMethodsMixin, BaseApiClient, metaclass=SmpApiClientMeta
     base_url = 'https://api.smp.io/'
     request_class = Request
 
+    # TODO: merge with JsonResponseMixin
     def clean_response(self, response, request):
         try:
             super().clean_response(response, request)
         except ApiError as err:
             if get_content_type(response) == 'application/json':
-                err.data = response.json()  # TODO: surround with try..except
+                try:
+                    err.data = response.json()
+                except ValueError:
+                    pass
             raise err
 
         if request.raw_response:
             return response
         elif get_content_type(response) == 'application/json':
-            return response.json()
+            try:
+                return response.json()
+            except ValueError as e:
+                raise self.ServerError(e, level='json')
         else:
             return response.content
 
