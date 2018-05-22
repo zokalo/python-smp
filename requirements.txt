@@ -1,0 +1,3 @@
+# httpapiclient
+pika >= 0.11.2
+certifi

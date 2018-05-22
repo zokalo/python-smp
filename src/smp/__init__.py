@@ -3,3 +3,4 @@
 from . import auth
 from . import exceptions
 from .client import SmpApiClient
+from .mq import SmpMqClient
