@@ -10,7 +10,7 @@ from pika.spec import PERSISTENT_DELIVERY_MODE
 log = logging.getLogger(__name__)
 
 
-class SmpMqClient(object):
+class SmpMqClient:
     url = 'amqp+ssl://mq.smp.io:5671/'
     auth = None
     main_exchange = 'smp'
