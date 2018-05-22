@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 
 class SmpMqClient(object):
     url = 'amqp+ssl://mq.smp.io:5671/'
+    auth = None
     main_exchange = 'smp'
     requeue_message_on_exception = True
     unsubscribe_on_unknown_event = False
@@ -36,9 +37,11 @@ class SmpMqClient(object):
             if url_bits.port:
                 cp.port = url_bits.port
 
-            if url_bits.username or url_bits.password:
+            if self.auth:
+                cp.credentials = pika.PlainCredentials(*self.auth)
+                self._username = self.auth[0]
+            elif url_bits.username or url_bits.password:
                 self._username = url_bits.username
-                cp.credentials = pika.PlainCredentials(url_bits.username, url_bits.password)
 
             url_scheme_parts = url_bits.scheme.split('+')
 
