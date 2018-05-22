@@ -88,10 +88,12 @@ class SmpMqClient(object):
     def subscribe(self, event_name):
         self.connect()
         self.channel.queue_bind(exchange=self.main_exchange, queue=self.queue, routing_key=event_name)
+        log.info('Subscribed to %s', event_name)
 
     def unsubscribe(self, event_name):
         self.connect()
         self.channel.queue_unbind(exchange=self.main_exchange, queue=self.queue, routing_key=event_name)
+        log.info('Unsubscribed from %s', event_name)
 
     def publish(self, event_name, data):
         self.connect()
@@ -104,6 +106,7 @@ class SmpMqClient(object):
                 'event-name': event_name,
             })
         self.channel.publish(exchange=self.main_exchange, routing_key=event_name, body=data, properties=properties)
+        log.info('Published %s', event_name)
 
     def consume(self, callback):
         self.connect()
