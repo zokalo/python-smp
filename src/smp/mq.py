@@ -7,6 +7,7 @@ from urlparse import urlsplit
 
 import pika
 import certifi
+from pika.spec import PERSISTENT_DELIVERY_MODE
 
 log = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class SmpMqClient(object):
     main_exchange = 'smp'
     requeue_message_on_exception = True
     unsubscribe_on_unknown_event = False
+    durable = True
 
     class UnknownEvent(Exception):
         pass
@@ -78,7 +80,10 @@ class SmpMqClient(object):
         self.connect()
 
         if self._queue is None:
-            self._queue = self.channel.queue_declare(self._username or '', exclusive=not self._username).method.queue
+            exclusive = not self._username
+            durable = self.durable and not exclusive
+            result = self.channel.queue_declare(self._username or '', durable=durable, exclusive=exclusive)
+            self._queue = result.method.queue
 
         return self._queue
 
@@ -95,10 +100,13 @@ class SmpMqClient(object):
     def publish(self, event_name, data):
         self.connect()
         data = json.dumps(data, separators=(',', ':'))
-        properties = pika.BasicProperties(content_type='application/json', headers={
-            'message-type': 'smp',
-            'event-name': event_name,
-        })
+        properties = pika.BasicProperties(
+            content_type='application/json',
+            delivery_mode=PERSISTENT_DELIVERY_MODE,
+            headers={
+                'message-type': 'smp',
+                'event-name': event_name,
+            })
         self.channel.publish(exchange=self.main_exchange, routing_key=event_name, body=data, properties=properties)
         log.info('Published %s', event_name)
 
