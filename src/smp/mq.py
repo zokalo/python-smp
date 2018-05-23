@@ -23,8 +23,7 @@ def protect_from_disconnect(func):
 
 
 class SmpMqClient:
-    url = 'amqp+ssl://mq.smp.io:5671/'
-    auth = None
+    default_url = 'amqp+ssl://mq.smp.io:5671/'
     main_exchange = 'smp'
     requeue_message_on_exception = True
     unsubscribe_on_unknown_event = False
@@ -33,57 +32,61 @@ class SmpMqClient:
     class UnknownEvent(Exception):
         pass
 
-    def __init__(self):
+    def __init__(self, url=None, auth=None):
+        if url is None:
+            url = self.default_url
+
+        self.cp = self.build_connection_params(url, auth)
         self.conn = None
         self.channel = None
         self._username = None
         self._queue = None
 
-    # TODO: don't construct ConnectionParameters every time
+    def build_connection_params(self, url, auth=None):
+        cp = pika.ConnectionParameters(blocked_connection_timeout=30, connection_attempts=3)
+        url_bits = urllib.parse.urlsplit(url)
+
+        cp.host = url_bits.hostname
+
+        if url_bits.port:
+            cp.port = url_bits.port
+
+        if auth:
+            cp.credentials = pika.PlainCredentials(*auth)
+            self._username = auth[0]
+        elif url_bits.username or url_bits.password:
+            self._username = url_bits.username
+
+        url_scheme_parts = url_bits.scheme.split('+')
+
+        try:
+            url_scheme_parts.remove('amqp')
+        except KeyError:
+            raise ValueError('non AMQP url', url)
+
+        if 'ssl' in url_scheme_parts:
+            url_scheme_parts.remove('ssl')
+
+            if not url_bits.port:
+                cp.port = 5671
+
+            cp.ssl = True
+            cp.ssl_options = {
+                'server_hostname': cp.host,
+                'context': {
+                    'cafile': certifi.where(),
+                    'check_hostname': True,
+                },
+            }
+
+        if url_scheme_parts:
+            raise ValueError('unknown AMQP protocol extensions', url_scheme_parts)
+
+        return cp
+
     def connect(self):
         if self.conn is None or self.conn.is_closed:
-            cp = pika.ConnectionParameters(blocked_connection_timeout=30, connection_attempts=3)
-
-            url = self.url
-            url_bits = urllib.parse.urlsplit(url)
-
-            cp.host = url_bits.hostname
-
-            if url_bits.port:
-                cp.port = url_bits.port
-
-            if self.auth:
-                cp.credentials = pika.PlainCredentials(*self.auth)
-                self._username = self.auth[0]
-            elif url_bits.username or url_bits.password:
-                self._username = url_bits.username
-
-            url_scheme_parts = url_bits.scheme.split('+')
-
-            try:
-                url_scheme_parts.remove('amqp')
-            except KeyError:
-                raise ValueError('non AMQP url', self.url)
-
-            if 'ssl' in url_scheme_parts:
-                url_scheme_parts.remove('ssl')
-
-                if not url_bits.port:
-                    cp.port = 5671
-
-                cp.ssl = True
-                cp.ssl_options = {
-                    'server_hostname': cp.host,
-                    'context': {
-                        'cafile': certifi.where(),
-                        'check_hostname': True,
-                    },
-                }
-
-            if url_scheme_parts:
-                raise ValueError('unknown AMQP protocol extensions', url_scheme_parts)
-
-            self.conn = pika.BlockingConnection(cp)
+            self.conn = pika.BlockingConnection(self.cp)
             self.channel = None
 
         if self.channel is None or self.channel.is_closed:
