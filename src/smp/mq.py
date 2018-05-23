@@ -7,14 +7,25 @@ from urlparse import urlsplit
 
 import pika
 import certifi
+import pika.exceptions
 from pika.spec import PERSISTENT_DELIVERY_MODE
 
 log = logging.getLogger(__name__)
 
 
+def protect_from_disconnect(func):
+    def wrapper(client, *args, **kwargs):
+        try:
+            return func(client, *args, **kwargs)
+        except (pika.exceptions.ConnectionClosed, pika.exceptions.ChannelClosed):
+            log.debug('Connection error, reconnecting')
+            client.connect()
+            return func(client, *args, **kwargs)
+    return wrapper
+
+
 class SmpMqClient(object):
-    url = 'amqp+ssl://mq.smp.io:5671/'
-    auth = None
+    default_url = 'amqp+ssl://mq.smp.io:5671/'
     main_exchange = 'smp'
     requeue_message_on_exception = True
     unsubscribe_on_unknown_event = False
@@ -23,63 +34,70 @@ class SmpMqClient(object):
     class UnknownEvent(Exception):
         pass
 
-    def __init__(self):
+    def __init__(self, url=None, auth=None):
+        if url is None:
+            url = self.default_url
+
+        self.cp = self.build_connection_params(url, auth)
         self.conn = None
         self.channel = None
         self._username = None
         self._queue = None
 
+    def build_connection_params(self, url, auth=None):
+        cp = pika.ConnectionParameters(blocked_connection_timeout=30, connection_attempts=3)
+        url_bits = urlsplit(url)
+
+        cp.host = url_bits.hostname
+
+        if url_bits.port:
+            cp.port = url_bits.port
+
+        if auth:
+            cp.credentials = pika.PlainCredentials(*auth)
+            self._username = auth[0]
+        elif url_bits.username or url_bits.password:
+            self._username = url_bits.username
+
+        url_scheme_parts = url_bits.scheme.split('+')
+
+        try:
+            url_scheme_parts.remove('amqp')
+        except KeyError:
+            raise ValueError('non AMQP url', url)
+
+        if 'ssl' in url_scheme_parts:
+            url_scheme_parts.remove('ssl')
+
+            if not url_bits.port:
+                cp.port = 5671
+
+            cp.ssl = True
+            cp.ssl_options = {
+                'server_hostname': cp.host,
+                'context': {
+                    'cafile': certifi.where(),
+                    'check_hostname': True,
+                },
+            }
+
+        if url_scheme_parts:
+            raise ValueError('unknown AMQP protocol extensions', url_scheme_parts)
+
+        return cp
+
     def connect(self):
-        if self.conn is None:
-            cp = pika.ConnectionParameters()
+        if self.conn is None or self.conn.is_closed:
+            self.conn = pika.BlockingConnection(self.cp)
+            self.channel = None
 
-            url = self.url
-            url_bits = urlsplit(url)
-
-            cp.host = url_bits.hostname
-
-            if url_bits.port:
-                cp.port = url_bits.port
-
-            if self.auth:
-                cp.credentials = pika.PlainCredentials(*self.auth)
-                self._username = self.auth[0]
-            elif url_bits.username or url_bits.password:
-                self._username = url_bits.username
-
-            url_scheme_parts = url_bits.scheme.split('+')
-
-            try:
-                url_scheme_parts.remove('amqp')
-            except KeyError:
-                raise ValueError('non AMQP url', self.url)
-
-            if 'ssl' in url_scheme_parts:
-                url_scheme_parts.remove('ssl')
-
-                if not url_bits.port:
-                    cp.port = 5671
-
-                cp.ssl = True
-                cp.ssl_options = {
-                    'server_hostname': cp.host,
-                    'context': {
-                        'cafile': certifi.where(),
-                        'check_hostname': True,
-                    },
-                }
-
-            if url_scheme_parts:
-                raise ValueError('unknown AMQP protocol extensions', url_scheme_parts)
-
-            self.conn = pika.BlockingConnection(cp)
+        if self.channel is None or self.channel.is_closed:
             self.channel = self.conn.channel()
 
     @property
     def queue(self):
-        self.connect()
-
         if self._queue is None:
+            self.connect()
             exclusive = not self._username
             durable = self.durable and not exclusive
             result = self.channel.queue_declare(self._username or '', durable=durable, exclusive=exclusive)
@@ -87,16 +105,19 @@ class SmpMqClient(object):
 
         return self._queue
 
+    @protect_from_disconnect
     def subscribe(self, event_name):
         self.connect()
         self.channel.queue_bind(exchange=self.main_exchange, queue=self.queue, routing_key=event_name)
         log.info('Subscribed to %s', event_name)
 
+    @protect_from_disconnect
     def unsubscribe(self, event_name):
         self.connect()
         self.channel.queue_unbind(exchange=self.main_exchange, queue=self.queue, routing_key=event_name)
         log.info('Unsubscribed from %s', event_name)
 
+    @protect_from_disconnect
     def publish(self, event_name, data):
         self.connect()
         data = json.dumps(data, separators=(',', ':'))
@@ -110,6 +131,7 @@ class SmpMqClient(object):
         self.channel.publish(exchange=self.main_exchange, routing_key=event_name, body=data, properties=properties)
         log.info('Published %s', event_name)
 
+    @protect_from_disconnect
     def consume(self, callback):
         self.connect()
 
