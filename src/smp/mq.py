@@ -37,12 +37,17 @@ class SmpMqClient:
             url = self.default_url
 
         self.cp = self.build_connection_params(url, auth)
+        if self.cp.credentials:
+            self._username = self.cp.credentials.username
+        else:
+            self._username = None
+
+        self._queue = None
         self.conn = None
         self.channel = None
-        self._username = None
-        self._queue = None
 
-    def build_connection_params(self, url, auth=None):
+    @staticmethod
+    def build_connection_params(url, auth=None):
         cp = pika.ConnectionParameters(blocked_connection_timeout=30, connection_attempts=3)
         url_bits = urllib.parse.urlsplit(url)
 
@@ -53,9 +58,8 @@ class SmpMqClient:
 
         if auth:
             cp.credentials = pika.PlainCredentials(*auth)
-            self._username = auth[0]
         elif url_bits.username or url_bits.password:
-            self._username = url_bits.username
+            cp.credentials = pika.PlainCredentials(url_bits.username, url_bits.password)
 
         url_scheme_parts = url_bits.scheme.split('+')
 
