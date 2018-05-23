@@ -5,9 +5,21 @@ import urllib.parse
 
 import pika
 import certifi
+import pika.exceptions
 from pika.spec import PERSISTENT_DELIVERY_MODE
 
 log = logging.getLogger(__name__)
+
+
+def protect_from_disconnect(func):
+    def wrapper(client, *args, **kwargs):
+        try:
+            return func(client, *args, **kwargs)
+        except (pika.exceptions.ConnectionClosed, pika.exceptions.ChannelClosed):
+            log.debug('Connection error, reconnecting')
+            client.connect()
+            return func(client, *args, **kwargs)
+    return wrapper
 
 
 class SmpMqClient:
@@ -27,9 +39,10 @@ class SmpMqClient:
         self._username = None
         self._queue = None
 
+    # TODO: don't construct ConnectionParameters every time
     def connect(self):
-        if self.conn is None:
-            cp = pika.ConnectionParameters()
+        if self.conn is None or self.conn.is_closed:
+            cp = pika.ConnectionParameters(blocked_connection_timeout=30, connection_attempts=3)
 
             url = self.url
             url_bits = urllib.parse.urlsplit(url)
@@ -71,13 +84,15 @@ class SmpMqClient:
                 raise ValueError('unknown AMQP protocol extensions', url_scheme_parts)
 
             self.conn = pika.BlockingConnection(cp)
+            self.channel = None
+
+        if self.channel is None or self.channel.is_closed:
             self.channel = self.conn.channel()
 
     @property
     def queue(self):
-        self.connect()
-
         if self._queue is None:
+            self.connect()
             exclusive = not self._username
             durable = self.durable and not exclusive
             result = self.channel.queue_declare(self._username or '', durable=durable, exclusive=exclusive)
@@ -85,16 +100,19 @@ class SmpMqClient:
 
         return self._queue
 
+    @protect_from_disconnect
     def subscribe(self, event_name):
         self.connect()
         self.channel.queue_bind(exchange=self.main_exchange, queue=self.queue, routing_key=event_name)
         log.info('Subscribed to %s', event_name)
 
+    @protect_from_disconnect
     def unsubscribe(self, event_name):
         self.connect()
         self.channel.queue_unbind(exchange=self.main_exchange, queue=self.queue, routing_key=event_name)
         log.info('Unsubscribed from %s', event_name)
 
+    @protect_from_disconnect
     def publish(self, event_name, data):
         self.connect()
         data = json.dumps(data, separators=(',', ':'))
@@ -108,6 +126,7 @@ class SmpMqClient:
         self.channel.publish(exchange=self.main_exchange, routing_key=event_name, body=data, properties=properties)
         log.info('Published %s', event_name)
 
+    @protect_from_disconnect
     def consume(self, callback):
         self.connect()
 
