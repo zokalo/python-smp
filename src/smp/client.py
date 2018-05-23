@@ -14,8 +14,16 @@ class Request(ApiRequest):
 
 
 class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
-    base_url = 'https://api.smp.io/'
+    default_base_url = 'https://api.smp.io/'
     request_class = Request
+
+    def __init__(self, base_url=None, basic_auth=None):
+        super().__init__()
+        if base_url is None:
+            base_url = self.default_base_url
+
+        self.base_url = base_url
+        self.session.auth = basic_auth
 
     def get_media_client(self, credential):
         return MediaClient(credential=credential, session=self.session)
