@@ -173,7 +173,7 @@ class SmpMqClient:
 # TODO: send pull request
 # =====================================================
 
-from pika.adapters.base_connection import BaseConnection
+from pika.adapters.base_connection import BaseConnection  # noqa
 
 
 def _wrap_socket(self, sock):
