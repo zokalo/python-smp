@@ -3,19 +3,12 @@ import functools
 
 from .exceptions import NoMatchingCredential
 
-from httpapiclient import BaseApiClient, ApiRequest, DEFAULT_TIMEOUT
+from httpapiclient import BaseApiClient, DEFAULT_TIMEOUT
 from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
-
-
-class Request(ApiRequest):
-    def __init__(self, *args, **kwargs):
-        self.raw_response = kwargs.pop('raw_response', False)
-        super().__init__(*args, **kwargs)
 
 
 class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
     default_base_url = 'https://api.smp.io/'
-    request_class = Request
 
     def __init__(self, base_url=None, basic_auth=None):
         super().__init__()
