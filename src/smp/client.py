@@ -3,7 +3,7 @@ import functools
 
 from .exceptions import NoMatchingCredential
 
-from httpapiclient import BaseApiClient, ApiError, DEFAULT_TIMEOUT
+from httpapiclient import BaseApiClient, DEFAULT_TIMEOUT
 from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
 
 
