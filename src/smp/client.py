@@ -72,20 +72,16 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
         return decorator
 
     def get_one(self, path, timeout=DEFAULT_TIMEOUT, **kwargs):
-        if 'params' not in kwargs:
-            kwargs['params'] = dict()
-
+        kwargs.setdefault('params', dict())
         kwargs['params']['page_size'] = 1
-        request = self.request_class('GET', path, **kwargs)
-        response = self.request(request, timeout=timeout)
+        response = self.get(path, timeout=timeout, **kwargs)
         results = response['results']
         if results:
             return results[0]
 
     def count_resource(self, path, timeout=DEFAULT_TIMEOUT, **kwargs):
         kwargs['raw_response'] = True
-        request = self.request_class('HEAD', path, **kwargs)
-        response = self.request(request, timeout=timeout)
+        response = self.head(path, timeout=timeout, **kwargs)
         if 'X-Total-Count' not in response.headers:
             raise self.ServerError(level='smp', code=response.code,
                                    status_text='X-Total-Count header does not exist', content=response.headers)
@@ -98,21 +94,16 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
         return int(count)
 
     def iterate_resource(self, path, timeout=DEFAULT_TIMEOUT, limit=None, **kwargs):
-        is_have_next_page = True
+        does_have_next_page = True
         resource_counter = 0
-        while is_have_next_page:
-            request = self.request_class('GET', path, **kwargs)
-            response = self.request(request, timeout=timeout)
+        while does_have_next_page:
+            response = self.get(path, timeout=timeout, **kwargs)
             if not response['next']:
-                is_have_next_page = False
+                does_have_next_page = False
             else:
-                try:
-                    url = urlparse(response['next'])
-                    path = url.path
-                    kwargs['params'] = parse_qs(url.query)
-                except (KeyError, IndexError):
-                    raise self.ServerError(level='smp', code=response.code,
-                                           starus_text='Next page url don\'t have cursor parameter in query string')
+                # drop query params, because they are in next url
+                path = response['next']
+                kwargs['params'] = dict()
 
             for row in response['results']:
                 if limit and resource_counter >= limit:
