@@ -1,6 +1,5 @@
 import copy
 import functools
-from urllib.parse import urlparse, parse_qs
 
 from .exceptions import NoMatchingCredential
 
