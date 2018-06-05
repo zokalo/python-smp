@@ -94,6 +94,10 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
         return int(count)
 
     def iterate_resource(self, path, timeout=DEFAULT_TIMEOUT, limit=None, **kwargs):
+        if limit:
+            kwargs.setdefault('params', dict())
+            kwargs['params']['page_size'] = limit
+
         does_have_next_page = True
         resource_counter = 0
         while does_have_next_page:
