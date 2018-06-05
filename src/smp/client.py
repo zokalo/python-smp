@@ -1,5 +1,6 @@
 import copy
 import functools
+from urllib.parse import urlparse, parse_qs
 
 from .exceptions import NoMatchingCredential
 
@@ -69,6 +70,55 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
         def decorator(func):
             return self.wrap_with_media_client(func, *args, **kwargs)
         return decorator
+
+    def get_one(self, path, timeout=DEFAULT_TIMEOUT, **kwargs):
+        if 'params' not in kwargs:
+            kwargs['params'] = dict()
+
+        kwargs['params']['page_size'] = 1
+        request = self.request_class('GET', path, **kwargs)
+        response = self.request(request, timeout=timeout)
+        results = response['results']
+        if results:
+            return results[0]
+
+    def count_resource(self, path, timeout=DEFAULT_TIMEOUT, **kwargs):
+        kwargs['raw_response'] = True
+        request = self.request_class('HEAD', path, **kwargs)
+        response = self.request(request, timeout=timeout)
+        if 'X-Total-Count' not in response.headers:
+            raise self.ServerError(level='smp', code=response.code,
+                                   status_text='X-Total-Count header does not exist', content=response.headers)
+
+        count = response.headers['X-Total-Count']
+        if not count.isdigit():
+            raise self.ServerError(level='smp', code=response.code,
+                                   status_text='X-Total-Count header not int', content=response.headers)
+
+        return int(count)
+
+    def iterate_resource(self, path, timeout=DEFAULT_TIMEOUT, limit=None, **kwargs):
+        is_have_next_page = True
+        resource_counter = 0
+        while is_have_next_page:
+            request = self.request_class('GET', path, **kwargs)
+            response = self.request(request, timeout=timeout)
+            if not response['next']:
+                is_have_next_page = False
+            else:
+                try:
+                    url = urlparse(response['next'])
+                    path = url.path
+                    kwargs['params'] = parse_qs(url.query)
+                except (KeyError, IndexError):
+                    raise self.ServerError(level='smp', code=response.code,
+                                           starus_text='Next page url don\'t have cursor parameter in query string')
+
+            for row in response['results']:
+                if limit and resource_counter >= limit:
+                    return
+                yield row
+                resource_counter += 1
 
 
 class MediaClient(SmpApiClient):
