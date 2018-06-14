@@ -5,19 +5,12 @@ import functools
 
 from .exceptions import NoMatchingCredential
 
-from httpapiclient import BaseApiClient, ApiRequest, DEFAULT_TIMEOUT
+from httpapiclient import BaseApiClient, DEFAULT_TIMEOUT
 from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
-
-
-class Request(ApiRequest):
-    def __init__(self, *args, **kwargs):
-        self.raw_response = kwargs.pop('raw_response', False)
-        super(Request, self).__init__(*args, **kwargs)
 
 
 class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
     default_base_url = 'https://api.smp.io/'
-    request_class = Request
 
     def __init__(self, base_url=None, basic_auth=None):
         super(SmpApiClient, self).__init__()
@@ -78,6 +71,50 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
         def decorator(func):
             return self.wrap_with_media_client(func, *args, **kwargs)
         return decorator
+
+    def get_one(self, path, timeout=DEFAULT_TIMEOUT, **kwargs):
+        kwargs.setdefault('params', dict())
+        kwargs['params']['page_size'] = 1
+        response = self.get(path, timeout=timeout, **kwargs)
+        results = response['results']
+        if results:
+            return results[0]
+
+    def count_resource(self, path, timeout=DEFAULT_TIMEOUT, **kwargs):
+        kwargs['raw_response'] = True
+        response = self.head(path, timeout=timeout, **kwargs)
+        if 'X-Total-Count' not in response.headers:
+            raise self.ServerError(level='smp', code=response.code,
+                                   status_text='X-Total-Count header does not exist', content=response.headers)
+
+        count = response.headers['X-Total-Count']
+        if not count.isdigit():
+            raise self.ServerError(level='smp', code=response.code,
+                                   status_text='X-Total-Count header not int', content=response.headers)
+
+        return int(count)
+
+    def iterate_resource(self, path, timeout=DEFAULT_TIMEOUT, limit=None, **kwargs):
+        if limit:
+            kwargs.setdefault('params', dict())
+            kwargs['params']['page_size'] = limit
+
+        does_have_next_page = True
+        resource_counter = 0
+        while does_have_next_page:
+            response = self.get(path, timeout=timeout, **kwargs)
+            if not response['next']:
+                does_have_next_page = False
+            else:
+                # drop query params, because they are in next url
+                path = response['next']
+                kwargs['params'] = dict()
+
+            for row in response['results']:
+                if limit and resource_counter >= limit:
+                    return
+                yield row
+                resource_counter += 1
 
 
 class MediaClient(SmpApiClient):
