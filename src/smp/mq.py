@@ -108,19 +108,19 @@ class SmpMqClient:
         return self._queue
 
     @protect_from_disconnect
-    def subscribe(self, event_name):
+    def subscribe(self, routing_key):
         self.connect()
-        self.channel.queue_bind(exchange=self.main_exchange, queue=self.queue, routing_key=event_name)
-        log.info('Subscribed to %s', event_name)
+        self.channel.queue_bind(exchange=self.main_exchange, queue=self.queue, routing_key=routing_key)
+        log.info('Subscribed to %s', routing_key)
 
     @protect_from_disconnect
-    def unsubscribe(self, event_name):
+    def unsubscribe(self, routing_key):
         self.connect()
-        self.channel.queue_unbind(exchange=self.main_exchange, queue=self.queue, routing_key=event_name)
-        log.info('Unsubscribed from %s', event_name)
+        self.channel.queue_unbind(exchange=self.main_exchange, queue=self.queue, routing_key=routing_key)
+        log.info('Unsubscribed from %s', routing_key)
 
     @protect_from_disconnect
-    def publish(self, event_name, data):
+    def publish(self, event_name, routing_key, data):
         self.connect()
         data = json.dumps(data, separators=(',', ':'))
         properties = pika.BasicProperties(
@@ -130,7 +130,7 @@ class SmpMqClient:
                 'message-type': 'smp',
                 'event-name': event_name,
             })
-        self.channel.publish(exchange=self.main_exchange, routing_key=event_name, body=data, properties=properties)
+        self.channel.publish(exchange=self.main_exchange, routing_key=routing_key, body=data, properties=properties)
         log.info('Published %s', event_name)
 
     @protect_from_disconnect
@@ -151,7 +151,7 @@ class SmpMqClient:
                     except self.UnknownEvent:
                         if self.unsubscribe_on_unknown_event:
                             log.warning('Unknown event %s received, unsubscribing', event_name)
-                            self.unsubscribe(event_name)
+                            self.unsubscribe(method.routing_key)
                             force_reject = True
                         raise
                 else:
