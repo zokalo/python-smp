@@ -107,22 +107,32 @@ class SmpMqClient:
 
         return self._queue
 
+    @staticmethod
+    def get_routing_key(event_name, owner_id='*', subowner_id='*'):
+        return f'{event_name}.{owner_id}.{subowner_id}'
+
     @protect_from_disconnect
-    def subscribe(self, routing_key):
+    def subscribe(self, event_name, owner_id='*', subowner_id='*'):
+        routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
         self.connect()
         self.channel.queue_bind(exchange=self.main_exchange, queue=self.queue, routing_key=routing_key)
         log.info('Subscribed to %s', routing_key)
 
+    def unsubscribe(self, event_name, owner_id='*', subowner_id='*'):
+        routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
+        self.unsubscribe_by_routing_key(routing_key)
+
     @protect_from_disconnect
-    def unsubscribe(self, routing_key):
+    def unsubscribe_by_routing_key(self, routing_key):
         self.connect()
         self.channel.queue_unbind(exchange=self.main_exchange, queue=self.queue, routing_key=routing_key)
         log.info('Unsubscribed from %s', routing_key)
 
     @protect_from_disconnect
-    def publish(self, event_name, routing_key, data):
+    def publish(self, event_name, owner_id=None, subowner_id=None, data=None):
+        routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
         self.connect()
-        data = json.dumps(data, separators=(',', ':'))
+        body = json.dumps(data, separators=(',', ':'))
         properties = pika.BasicProperties(
             content_type='application/json',
             delivery_mode=PERSISTENT_DELIVERY_MODE,
@@ -130,8 +140,8 @@ class SmpMqClient:
                 'message-type': 'smp',
                 'event-name': event_name,
             })
-        self.channel.publish(exchange=self.main_exchange, routing_key=routing_key, body=data, properties=properties)
-        log.info('Published %s', event_name)
+        self.channel.publish(exchange=self.main_exchange, routing_key=routing_key, body=body, properties=properties)
+        log.info('Published %s', routing_key)
 
     @protect_from_disconnect
     def consume(self, callback):
@@ -151,7 +161,7 @@ class SmpMqClient:
                     except self.UnknownEvent:
                         if self.unsubscribe_on_unknown_event:
                             log.warning('Unknown event %s received, unsubscribing', event_name)
-                            self.unsubscribe(method.routing_key)
+                            self.unsubscribe_by_routing_key(method.routing_key)
                             force_reject = True
                         raise
                 else:
