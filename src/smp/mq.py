@@ -111,7 +111,7 @@ class SmpMqClient(object):
 
     @staticmethod
     def get_routing_key(event_name, owner_id='*', subowner_id='*'):
-        return f'{event_name}.{owner_id}.{subowner_id}.'
+        return '.'.join((event_name, owner_id, subowner_id, ''))
 
     @protect_from_disconnect
     def subscribe(self, event_name, owner_id='*', subowner_id='*'):
