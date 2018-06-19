@@ -109,11 +109,11 @@ class SmpMqClient:
 
     @staticmethod
     def get_routing_key(event_name, owner_id='*', subowner_id='*'):
-        return f'{event_name}.{owner_id}.{subowner_id}'
+        return f'{event_name}.{owner_id}.{subowner_id}.'
 
     @protect_from_disconnect
     def subscribe(self, event_name, owner_id='*', subowner_id='*'):
-        routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
+        routing_key = self.get_routing_key(event_name, owner_id, subowner_id) + '#'
         self.connect()
         self.channel.queue_bind(exchange=self.main_exchange, queue=self.queue, routing_key=routing_key)
         log.info('Subscribed to %s', routing_key)
