@@ -8,18 +8,16 @@ from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
 
 
 class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
-    default_base_url = 'https://api.smp.io/'
-
-    def __init__(self, base_url=None, basic_auth=None):
+    def __init__(self, *, base_url=None, basic_auth=None):
         super().__init__()
         if base_url is None:
-            base_url = self.default_base_url
+            base_url = 'https://api.smp.io/'
 
         self.base_url = base_url
         self.session.auth = basic_auth
 
     def get_media_client(self, credential):
-        return MediaClient(credential=credential, session=self.session)
+        return MediaClient(credential, session=self.session, base_url=self.base_url)
 
     def wrap_with_media_client(self, func, account_page_id, permissions, fail_silently=False):
         """
@@ -116,8 +114,8 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
 
 
 class MediaClient(SmpApiClient):
-    def __init__(self, *, credential, session=None):
-        super().__init__()
+    def __init__(self, credential, *, session=None, base_url=None):
+        super().__init__(base_url=base_url)
 
         self.credential = copy.copy(credential)
         if session is not None:
