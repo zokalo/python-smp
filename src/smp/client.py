@@ -1,7 +1,7 @@
 import copy
 import functools
 
-from .exceptions import NoMatchingCredential
+from .exceptions import NoMatchingCredential, MultipleObjectsReturned
 
 from httpapiclient import BaseApiClient, DEFAULT_TIMEOUT
 from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
@@ -72,6 +72,8 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
         kwargs.setdefault('params', dict())
         kwargs['params']['page_size'] = 1
         response = self.get(path, timeout=timeout, **kwargs)
+        if response.get('next'):
+            raise MultipleObjectsReturned()
         results = response['results']
         if results:
             return results[0]
