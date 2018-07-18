@@ -1,7 +1,7 @@
 import copy
 import functools
 
-from .exceptions import NoMatchingCredential
+from .exceptions import NoMatchingCredential, MultipleObjectsReturned
 
 from httpapiclient import BaseApiClient, DEFAULT_TIMEOUT
 from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
@@ -72,6 +72,8 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
         kwargs.setdefault('params', dict())
         kwargs['params']['page_size'] = 1
         response = self.get(path, timeout=timeout, **kwargs)
+        if response.get('next'):
+            raise MultipleObjectsReturned()
         results = response['results']
         if results:
             return results[0]
@@ -123,8 +125,9 @@ class MediaClient(SmpApiClient):
 
         if not self.credential.get('app') and self.credential['app_id']:
             self.credential['app'] = self.get(f'apps/v1/by-id/{self.credential["app_id"]}')
-            self.credential['app']['credential'] = self.get_one(
-                f'app-credentials/v1/credentials/?app_id={self.credential["app"]["id"]}')
+            self.credential['app']['credential'] = self.get_one(f'app-credentials/v1/credentials/', params={
+                'app_id': self.credential['app']['id']
+            })
 
         self.medium = self.credential['medium']
         self.base_url = self.base_url + f'client-{self.medium}/'
