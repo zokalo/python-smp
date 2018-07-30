@@ -3,14 +3,33 @@ from __future__ import print_function, division, absolute_import, unicode_litera
 import copy
 import functools
 
-from .exceptions import NoMatchingCredential
+from .exceptions import NoMatchingCredential, MultipleObjectsReturned
 
-from httpapiclient import BaseApiClient, DEFAULT_TIMEOUT
+from httpapiclient import BaseApiClient, DEFAULT_TIMEOUT, ApiRequest
 from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
+
+
+class SmpApiRequest(ApiRequest):
+    def __init__(self, *args, **kwargs):
+        kwargs = self._prepare_params(kwargs)
+        super(SmpApiRequest, self).__init__(*args, **kwargs)
+
+    @staticmethod
+    def _prepare_params(kwargs):
+        """
+        django-filters lookup type "__in" in most cases support only ?field__in=v1,v2,v3 syntax
+        also it makes your query params shorter
+        """
+        params = kwargs.get('params', {})
+        for param, value in params.items():
+            if param.endswith('__in') and isinstance(value, (set, list, tuple)):
+                params[param] = ','.join(str(i) for i in value)
+        return kwargs
 
 
 class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
     default_base_url = 'https://api.smp.io/'
+    request_class = SmpApiRequest
 
     def __init__(self, base_url=None, basic_auth=None):
         super(SmpApiClient, self).__init__()
@@ -21,7 +40,7 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
         self.session.auth = basic_auth
 
     def get_media_client(self, credential):
-        return MediaClient(credential=credential, session=self.session)
+        return MediaClient(credential, session=self.session, base_url=self.base_url)
 
     def wrap_with_media_client(self, func, account_page_id, permissions, fail_silently=False):
         """
@@ -76,6 +95,8 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
         kwargs.setdefault('params', dict())
         kwargs['params']['page_size'] = 1
         response = self.get(path, timeout=timeout, **kwargs)
+        if response.get('next'):
+            raise MultipleObjectsReturned()
         results = response['results']
         if results:
             return results[0]
@@ -118,8 +139,8 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
 
 
 class MediaClient(SmpApiClient):
-    def __init__(self, credential, session=None):
-        super(MediaClient, self).__init__()
+    def __init__(self, credential, session=None, base_url=None):
+        super(MediaClient, self).__init__(base_url=base_url)
 
         self.credential = copy.copy(credential)
         if session is not None:
@@ -127,6 +148,9 @@ class MediaClient(SmpApiClient):
 
         if not self.credential.get('app') and self.credential['app_id']:
             self.credential['app'] = self.get('apps/v1/by-id/' + self.credential['app_id'])
+            self.credential['app']['credential'] = self.get_one('app-credentials/v1/credentials/', params={
+                'app_id': self.credential['app']['id']
+            })
 
         self.medium = self.credential['medium']
         self.base_url = self.base_url + 'client-{}/'.format(self.medium)

@@ -3,3 +3,7 @@ from __future__ import print_function, division, absolute_import, unicode_litera
 
 class NoMatchingCredential(Exception):
     """Credential for this operation not found."""
+
+
+class MultipleObjectsReturned(Exception):
+    pass
