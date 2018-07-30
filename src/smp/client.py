@@ -3,11 +3,31 @@ import functools
 
 from .exceptions import NoMatchingCredential, MultipleObjectsReturned
 
-from httpapiclient import BaseApiClient, DEFAULT_TIMEOUT
+from httpapiclient import BaseApiClient, DEFAULT_TIMEOUT, ApiRequest
 from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
 
 
+class SmpApiRequest(ApiRequest):
+    def __init__(self, *args, **kwargs):
+        kwargs = self._prepare_params(kwargs)
+        super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def _prepare_params(kwargs):
+        """
+        django-filters lookup type "__in" in most cases support only ?field__in=v1,v2,v3 syntax
+        also it makes your query params shorter
+        """
+        params = kwargs.get('params', {})
+        for param, value in params.items():
+            if param.endswith('__in') and isinstance(value, (set, list, tuple)):
+                params[param] = ','.join(str(i) for i in value)
+        return kwargs
+
+
 class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
+    request_class = SmpApiRequest
+
     def __init__(self, *, base_url=None, basic_auth=None):
         super().__init__()
         if base_url is None:
