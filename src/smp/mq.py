@@ -25,7 +25,6 @@ def protect_from_disconnect(func):
 
 
 class SmpMqClient(object):
-    default_url = 'amqp+ssl://mq.smp.io:5671/'
     main_exchange = 'smp'
     requeue_message_on_exception = True
     unsubscribe_on_unknown_event = False
@@ -36,7 +35,7 @@ class SmpMqClient(object):
 
     def __init__(self, url=None, auth=None):
         if url is None:
-            url = self.default_url
+            url = 'amqp+ssl://mq.smp.io:5671/'
 
         self.cp = self.build_connection_params(url, auth)
         if self.cp.credentials:
