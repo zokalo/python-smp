@@ -28,13 +28,12 @@ class SmpApiRequest(ApiRequest):
 
 
 class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
-    default_base_url = 'https://api.smp.io/'
     request_class = SmpApiRequest
 
     def __init__(self, base_url=None, basic_auth=None):
         super(SmpApiClient, self).__init__()
         if base_url is None:
-            base_url = self.default_base_url
+            base_url = 'https://api.smp.io/'
 
         self.base_url = base_url
         self.session.auth = basic_auth
