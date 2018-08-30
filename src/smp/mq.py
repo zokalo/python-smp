@@ -12,13 +12,22 @@ log = logging.getLogger(__name__)
 
 
 def protect_from_disconnect(func):
+    max_tries = 2
+
     def wrapper(client, *args, **kwargs):
-        try:
-            return func(client, *args, **kwargs)
-        except (pika.exceptions.ConnectionClosed, pika.exceptions.ChannelClosed):
-            log.debug('Connection error, reconnecting')
-            client.connect()
-            return func(client, *args, **kwargs)
+        tries_left = max_tries
+        err = None
+        while tries_left > 0:
+            try:
+                return func(client, *args, **kwargs)
+            except pika.exceptions.ConnectionClosed as e:
+                err = e
+            except pika.exceptions.ChannelClosed as e:
+                if e.args[0] == 403:  # ACCESS_REFUSED
+                    raise e
+                err = e
+            tries_left -= 1
+        raise err
     return wrapper
 
 
