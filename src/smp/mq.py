@@ -103,6 +103,7 @@ class SmpMqClient:
 
         if self.channel is None or self.channel.is_closed:
             self.channel = self.conn.channel()
+            self.channel.confirm_delivery()
 
     @property
     def queue(self):
