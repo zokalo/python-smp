@@ -3,7 +3,6 @@ from __future__ import print_function, division, absolute_import, unicode_litera
 import ssl
 import json
 import logging
-from urlparse import urlsplit
 
 import pika
 import certifi
@@ -44,9 +43,9 @@ class SmpMqClient(object):
 
     def __init__(self, url=None, auth=None):
         if url is None:
-            url = 'amqp+ssl://mq.smp.io:5671/'
+            url = 'amqps://mq.smp.io:5671/'
 
-        self.cp = self.build_connection_params(url, auth)
+        self.cp = ConnectionParameters(url, auth)
         if self.cp.credentials:
             self._username = self.cp.credentials.username
         else:
@@ -55,48 +54,6 @@ class SmpMqClient(object):
         self._queue = None
         self.conn = None
         self.channel = None
-
-    @staticmethod
-    def build_connection_params(url, auth=None):
-        cp = pika.ConnectionParameters(blocked_connection_timeout=30, connection_attempts=3)
-        url_bits = urlsplit(url)
-
-        cp.host = url_bits.hostname
-
-        if url_bits.port:
-            cp.port = url_bits.port
-
-        if auth:
-            cp.credentials = pika.PlainCredentials(*auth)
-        elif url_bits.username or url_bits.password:
-            cp.credentials = pika.PlainCredentials(url_bits.username, url_bits.password)
-
-        url_scheme_parts = url_bits.scheme.split('+')
-
-        try:
-            url_scheme_parts.remove('amqp')
-        except KeyError:
-            raise ValueError('non AMQP url', url)
-
-        if 'ssl' in url_scheme_parts:
-            url_scheme_parts.remove('ssl')
-
-            if not url_bits.port:
-                cp.port = 5671
-
-            cp.ssl = True
-            cp.ssl_options = {
-                'server_hostname': cp.host,
-                'context': {
-                    'cafile': certifi.where(),
-                    'check_hostname': True,
-                },
-            }
-
-        if url_scheme_parts:
-            raise ValueError('unknown AMQP protocol extensions', url_scheme_parts)
-
-        return cp
 
     def connect(self):
         if self.conn is None or self.conn.is_closed:
@@ -187,6 +144,31 @@ class SmpMqClient(object):
         self.channel.basic_consume(internal_callback, queue=self.queue, no_ack=False)
         log.info('Starting consuming')
         self.channel.start_consuming()
+
+
+class ConnectionParameters(pika.URLParameters):
+    DEFAULT_BLOCKED_CONNECTION_TIMEOUT = 30
+    DEFAULT_CONNECTION_ATTEMPTS = 3
+
+    # Current implementation uses blocking connection in single threaded environment.
+    # This setup doesn't support background heartbeats.
+    # https://github.com/pika/pika/issues/752
+    DEFAULT_HEARTBEAT_TIMEOUT = 0
+
+    def __init__(self, url, auth=None):
+        url = url.replace('amqp+ssl://', 'amqps://')  # TODO: remove
+        super(ConnectionParameters, self).__init__(url)
+
+        self.ssl_options = {
+            'server_hostname': self.host,
+            'context': {
+                'cafile': certifi.where(),
+                'check_hostname': True,
+            },
+        }
+
+        if auth:
+            self.credentials = pika.PlainCredentials(*auth)
 
 
 # =====================================================
