@@ -153,7 +153,7 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
                     'previous': None,
                     'results': [],
                 }
-        super(SmpApiClient, self)._request_once(request, prepeared, timeout)
+        return super(SmpApiClient, self)._request_once(request, prepeared, timeout)
 
 
 class MediaClient(SmpApiClient):
