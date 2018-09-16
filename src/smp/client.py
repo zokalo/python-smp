@@ -11,19 +11,22 @@ from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
 
 class SmpApiRequest(ApiRequest):
     def __init__(self, *args, **kwargs):
+        self.empty = False
         kwargs = self._prepare_params(kwargs)
         super(SmpApiRequest, self).__init__(*args, **kwargs)
 
-    @staticmethod
-    def _prepare_params(kwargs):
+    def _prepare_params(self, kwargs):
         """
         django-filters lookup type "__in" in most cases support only ?field__in=v1,v2,v3 syntax
         also it makes your query params shorter
         """
         params = kwargs.get('params', {})
         for param, value in params.items():
-            if param.endswith('__in') and isinstance(value, (set, list, tuple)):
-                params[param] = ','.join(str(i) for i in value)
+            if param.endswith('__in'):
+                if not value:
+                    self.empty = True
+                if isinstance(value, (set, list, tuple)):
+                    params[param] = ','.join(str(i) for i in value)
         return kwargs
 
 
@@ -139,6 +142,18 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
                     return
                 yield row
                 resource_counter += 1
+
+    def _request_once(self, request, prepeared, timeout):
+        if request.empty:
+            if request.raw_response:
+                raise NotImplementedError
+            else:
+                return {
+                    'next': None,
+                    'previous': None,
+                    'results': [],
+                }
+        super(SmpApiClient, self)._request_once(request, prepeared, timeout)
 
 
 class MediaClient(SmpApiClient):
