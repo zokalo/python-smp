@@ -28,6 +28,7 @@ class SmpApiRequest(ApiRequest):
 
 
 class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
+    default_timeout = (6.1, None)
     request_class = SmpApiRequest
 
     def __init__(self, base_url=None, basic_auth=None, user_id=None):
