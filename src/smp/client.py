@@ -6,9 +6,6 @@ from .exceptions import NoMatchingCredential, MultipleObjectsReturned
 from httpapiclient import BaseApiClient, DEFAULT_TIMEOUT, ApiRequest
 from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
 
-REQUEST_MAX_OVERHEAD_TIME = 10  # includes auth requests, inter-service connect times, etc
-DEFAULT_MEDIA_TIMEOUT = 60 + REQUEST_MAX_OVERHEAD_TIME
-
 
 class SmpApiRequest(ApiRequest):
     def __init__(self, *args, **kwargs):
@@ -29,6 +26,7 @@ class SmpApiRequest(ApiRequest):
 
 
 class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
+    default_timeout = (6.1, None)
     request_class = SmpApiRequest
 
     def __init__(self, *, base_url=None, basic_auth=None, user_id=None):
@@ -159,7 +157,7 @@ class MediaClient(SmpApiClient):
         self.medium = self.credential['medium']
         self.base_url = self.base_url + f'client-{self.medium}/'
 
-    def request(self, request, timeout=DEFAULT_MEDIA_TIMEOUT):
+    def request(self, request, timeout=DEFAULT_TIMEOUT):
         if request.json is None:
             request.json = {}
         request.json.setdefault('credential', self.credential)
