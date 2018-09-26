@@ -95,7 +95,7 @@ class SmpMqClient:
         log.info('Unsubscribed from %s', routing_key)
 
     @protect_from_disconnect
-    def publish(self, event_name, owner_id=None, subowner_id=None, data=None):
+    def publish(self, event_name, data=None, owner_id=None, subowner_id=None):
         routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
         self.connect()
         body = json.dumps(data, separators=(',', ':'))
