@@ -1,6 +1,7 @@
 import ssl
 import json
 import logging
+import threading
 
 import pika
 import certifi
@@ -30,6 +31,20 @@ def protect_from_disconnect(func):
     return wrapper
 
 
+def make_thread_safe(func):
+    def wrapper(client, *args, **kwargs):
+        if client.thread_safe:
+            lock = getattr(client, '_lock', None)
+            if not lock:
+                lock = threading.Lock()
+                client._lock = lock
+            with client._lock:
+                return func(client, *args, **kwargs)
+        else:
+            return func(client, *args, **kwargs)
+    return wrapper
+
+
 class SmpMqClient:
     main_exchange = 'smp'
     requeue_message_on_exception = True
@@ -39,7 +54,7 @@ class SmpMqClient:
     class UnknownEvent(Exception):
         pass
 
-    def __init__(self, *, url=None, auth=None):
+    def __init__(self, *, url=None, auth=None, thread_safe=False):
         if url is None:
             url = 'amqps://mq.smp.io:5671/'
 
@@ -52,6 +67,7 @@ class SmpMqClient:
         self._queue = None
         self.conn = None
         self.channel = None
+        self.thread_safe = thread_safe
 
     def connect(self):
         if self.conn is None or self.conn.is_closed:
@@ -78,6 +94,7 @@ class SmpMqClient:
         return f'{event_name}.{owner_id}.{subowner_id}.'
 
     @protect_from_disconnect
+    @make_thread_safe
     def subscribe(self, event_name, owner_id='*', subowner_id='*'):
         routing_key = self.get_routing_key(event_name, owner_id, subowner_id) + '#'
         self.connect()
@@ -89,12 +106,14 @@ class SmpMqClient:
         self.unsubscribe_by_routing_key(routing_key)
 
     @protect_from_disconnect
+    @make_thread_safe
     def unsubscribe_by_routing_key(self, routing_key):
         self.connect()
         self.channel.queue_unbind(exchange=self.main_exchange, queue=self.queue, routing_key=routing_key)
         log.info('Unsubscribed from %s', routing_key)
 
     @protect_from_disconnect
+    @make_thread_safe
     def publish(self, event_name, data=None, owner_id=None, subowner_id=None):
         routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
         self.connect()
@@ -113,6 +132,7 @@ class SmpMqClient:
         log.info('Published %s', routing_key)
 
     @protect_from_disconnect
+    @make_thread_safe
     def consume(self, callback):
         self.connect()
 
