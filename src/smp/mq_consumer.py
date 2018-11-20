@@ -1,4 +1,5 @@
 import sys
+import time
 import signal
 import logging
 from collections import defaultdict
@@ -20,6 +21,35 @@ class SmpMqConsumer:
             self.mq.subscribe(event_name, owner_id, subowner_id)
         self.unique_tuples.add((event_name, owner_id, subowner_id))
         self.funcs[event_name].append(func)
+
+    def forget(self, *event_names, timeout=5):
+        for event_name in event_names:
+            self.mq.unsubscribe(event_name)
+
+            try:
+                del self.funcs[event_name]
+            except KeyError:
+                pass
+
+            for t in list(self.unique_tuples):
+                if t[0] == event_name:
+                    self.unique_tuples.remove(t)
+
+        end_time = time.time() + timeout
+
+        def callback(event_name, data):
+            global end_time
+
+            if event_name in event_names:
+                # acknowledge and ignore
+                end_time = time.time() + timeout
+            else:
+                if time.time() > end_time:
+                    raise SmpMqClient.StopConsuming  # exit
+                else:
+                    raise SmpMqClient.UnknownEvent  # reject and requeue
+
+        self.mq.consume(callback, inactivity_timeout=timeout)
 
     def run(self):
         for event_name, owner_id, subowner_id in self.unique_tuples:

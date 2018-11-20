@@ -1,6 +1,7 @@
 import ssl
 import json
 import logging
+import functools
 import threading
 
 import pika
@@ -52,6 +53,9 @@ class SmpMqClient:
     durable = True
 
     class UnknownEvent(Exception):
+        pass
+
+    class StopConsuming(Exception):
         pass
 
     def __init__(self, *, url=None, auth=None, thread_safe=False):
@@ -133,38 +137,53 @@ class SmpMqClient:
 
     @protect_from_disconnect
     @make_thread_safe
-    def consume(self, callback):
+    def consume(self, callback, inactivity_timeout=None):
         self.connect()
+        my_callback = functools.partial(self._internal_callback, callback)
 
-        def internal_callback(channel, method, properties, body):
-            force_reject = False
-
-            try:
-                message_type = properties.headers.get('message-type')
-                if message_type == 'smp':
-                    event_name = properties.headers['event-name']
-                    log.info('Received SMP event %s', event_name)
-                    data = json.loads(body)
-                    try:
-                        callback(event_name, data)
-                    except self.UnknownEvent:
-                        if self.unsubscribe_on_unknown_event:
-                            log.warning('Unknown event %s received, unsubscribing', event_name)
-                            self.unsubscribe_by_routing_key(method.routing_key)
-                            force_reject = True
-                        raise
-                else:
-                    log.error('Got unknown message-type %s, ignoring', message_type)
-            except Exception:
-                log.exception('Failed to handle SMP event')
-                requeue = not force_reject or self.requeue_message_on_exception
-                channel.basic_reject(delivery_tag=method.delivery_tag, requeue=requeue)
+        try:
+            if inactivity_timeout is None:
+                self.channel.basic_consume(my_callback, queue=self.queue, no_ack=False)
+                log.info('Starting consuming')
+                self.channel.start_consuming()
             else:
-                channel.basic_ack(delivery_tag=method.delivery_tag)
+                for method, properties, body in self.channel.consume(self.queue, no_ack=False,
+                                                                     inactivity_timeout=inactivity_timeout):
+                    if (method, properties, body) == (None, None, None):
+                        break
+                    else:
+                        my_callback(self.channel, method, properties, body)
+        except self.StopConsuming:
+            pass
 
-        self.channel.basic_consume(internal_callback, queue=self.queue, no_ack=False)
-        log.info('Starting consuming')
-        self.channel.start_consuming()
+    def _internal_callback(self, callback, channel, method, properties, body):
+        force_reject = False
+
+        try:
+            message_type = properties.headers.get('message-type')
+            if message_type == 'smp':
+                event_name = properties.headers['event-name']
+                log.info('Received SMP event %s', event_name)
+                data = json.loads(body)
+                try:
+                    callback(event_name, data)
+                except self.UnknownEvent:
+                    if self.unsubscribe_on_unknown_event:
+                        log.warning('Unknown event %s received, unsubscribing', event_name)
+                        self.unsubscribe_by_routing_key(method.routing_key)
+                        force_reject = True
+                    raise
+            else:
+                log.error('Got unknown message-type %s, ignoring', message_type)
+        except self.StopConsuming:
+            channel.basic_reject(delivery_tag=method.delivery_tag, requeue=True)
+            raise
+        except Exception:
+            log.exception('Failed to handle SMP event')
+            requeue = not force_reject or self.requeue_message_on_exception
+            channel.basic_reject(delivery_tag=method.delivery_tag, requeue=requeue)
+        else:
+            channel.basic_ack(delivery_tag=method.delivery_tag)
 
     @staticmethod
     def _sanitize_event_data(event_name, data):
