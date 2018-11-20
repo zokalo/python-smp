@@ -26,18 +26,16 @@ class SmpMqConsumer:
 
     def forget(self, *event_names, **kwargs):
         timeout = kwargs.pop('timeout', 5)
+        owner_id = kwargs.pop('owner_id', '*')
+        subowner_id = kwargs.pop('subowner_id', '*')
 
         for event_name in event_names:
-            self.mq.unsubscribe(event_name)
-
+            self.mq.unsubscribe(event_name, owner_id, subowner_id)
+            self.unique_tuples.discard((event_name, owner_id, subowner_id))
             try:
                 del self.funcs[event_name]
             except KeyError:
                 pass
-
-            for t in list(self.unique_tuples):
-                if t[0] == event_name:
-                    self.unique_tuples.remove(t)
 
         end_time = time.time() + timeout
 
