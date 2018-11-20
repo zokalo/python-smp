@@ -3,6 +3,8 @@ from __future__ import print_function, division, absolute_import, unicode_litera
 import ssl
 import json
 import logging
+import functools
+import threading
 
 import pika
 import certifi
@@ -32,6 +34,20 @@ def protect_from_disconnect(func):
     return wrapper
 
 
+def make_thread_safe(func):
+    def wrapper(client, *args, **kwargs):
+        if client.thread_safe:
+            lock = getattr(client, '_lock', None)
+            if not lock:
+                lock = threading.Lock()
+                client._lock = lock
+            with client._lock:
+                return func(client, *args, **kwargs)
+        else:
+            return func(client, *args, **kwargs)
+    return wrapper
+
+
 class SmpMqClient(object):
     main_exchange = 'smp'
     requeue_message_on_exception = True
@@ -41,7 +57,10 @@ class SmpMqClient(object):
     class UnknownEvent(Exception):
         pass
 
-    def __init__(self, url=None, auth=None):
+    class StopConsuming(Exception):
+        pass
+
+    def __init__(self, url=None, auth=None, thread_safe=False):
         if url is None:
             url = 'amqps://mq.smp.io:5671/'
 
@@ -54,6 +73,7 @@ class SmpMqClient(object):
         self._queue = None
         self.conn = None
         self.channel = None
+        self.thread_safe = thread_safe
 
     def connect(self):
         if self.conn is None or self.conn.is_closed:
@@ -80,6 +100,7 @@ class SmpMqClient(object):
         return '.'.join((event_name, owner_id, subowner_id, ''))
 
     @protect_from_disconnect
+    @make_thread_safe
     def subscribe(self, event_name, owner_id='*', subowner_id='*'):
         routing_key = self.get_routing_key(event_name, owner_id, subowner_id) + '#'
         self.connect()
@@ -87,19 +108,24 @@ class SmpMqClient(object):
         log.info('Subscribed to %s', routing_key)
 
     def unsubscribe(self, event_name, owner_id='*', subowner_id='*'):
-        routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
+        routing_key = self.get_routing_key(event_name, owner_id, subowner_id) + '#'
         self.unsubscribe_by_routing_key(routing_key)
 
     @protect_from_disconnect
+    @make_thread_safe
     def unsubscribe_by_routing_key(self, routing_key):
         self.connect()
         self.channel.queue_unbind(exchange=self.main_exchange, queue=self.queue, routing_key=routing_key)
         log.info('Unsubscribed from %s', routing_key)
 
     @protect_from_disconnect
-    def publish(self, event_name, owner_id=None, subowner_id=None, data=None):
+    @make_thread_safe
+    def publish(self, event_name, data=None, owner_id=None, subowner_id=None):
         routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
         self.connect()
+        if owner_id:
+            # if event can be received by some app, sanitize the data
+            data = self._sanitize_event_data(event_name, data)
         body = json.dumps(data, separators=(',', ':'))
         properties = pika.BasicProperties(
             content_type='application/json',
@@ -112,38 +138,63 @@ class SmpMqClient(object):
         log.info('Published %s', routing_key)
 
     @protect_from_disconnect
-    def consume(self, callback):
+    @make_thread_safe
+    def consume(self, callback, inactivity_timeout=None):
         self.connect()
+        my_callback = functools.partial(self._internal_callback, callback)
 
-        def internal_callback(channel, method, properties, body):
-            force_reject = False
-
-            try:
-                message_type = properties.headers.get('message-type')
-                if message_type == 'smp':
-                    event_name = properties.headers['event-name']
-                    log.info('Received SMP event %s', event_name)
-                    data = json.loads(body)
-                    try:
-                        callback(event_name, data)
-                    except self.UnknownEvent:
-                        if self.unsubscribe_on_unknown_event:
-                            log.warning('Unknown event %s received, unsubscribing', event_name)
-                            self.unsubscribe_by_routing_key(method.routing_key)
-                            force_reject = True
-                        raise
-                else:
-                    log.error('Got unknown message-type %s, ignoring', message_type)
-            except Exception:
-                log.exception('Failed to handle SMP event')
-                requeue = not force_reject or self.requeue_message_on_exception
-                channel.basic_reject(delivery_tag=method.delivery_tag, requeue=requeue)
+        try:
+            if inactivity_timeout is None:
+                self.channel.basic_consume(my_callback, queue=self.queue, no_ack=False)
+                log.info('Starting consuming')
+                self.channel.start_consuming()
             else:
-                channel.basic_ack(delivery_tag=method.delivery_tag)
+                for method, properties, body in self.channel.consume(self.queue, no_ack=False,
+                                                                     inactivity_timeout=inactivity_timeout):
+                    if (method, properties, body) == (None, None, None):
+                        break
+                    else:
+                        my_callback(self.channel, method, properties, body)
+        except self.StopConsuming:
+            pass
 
-        self.channel.basic_consume(internal_callback, queue=self.queue, no_ack=False)
-        log.info('Starting consuming')
-        self.channel.start_consuming()
+    def _internal_callback(self, callback, channel, method, properties, body):
+        force_reject = False
+
+        try:
+            message_type = properties.headers.get('message-type')
+            if message_type == 'smp':
+                event_name = properties.headers['event-name']
+                log.info('Received SMP event %s', event_name)
+                data = json.loads(body)
+                try:
+                    callback(event_name, data)
+                except self.UnknownEvent:
+                    if self.unsubscribe_on_unknown_event:
+                        log.warning('Unknown event %s received, unsubscribing', event_name)
+                        self.unsubscribe_by_routing_key(method.routing_key)
+                        force_reject = True
+                    raise
+            else:
+                log.error('Got unknown message-type %s, ignoring', message_type)
+        except self.StopConsuming:
+            channel.basic_reject(delivery_tag=method.delivery_tag, requeue=True)
+            raise
+        except Exception:
+            log.exception('Failed to handle SMP event')
+            requeue = not force_reject or self.requeue_message_on_exception
+            channel.basic_reject(delivery_tag=method.delivery_tag, requeue=requeue)
+        else:
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+
+    @staticmethod
+    def _sanitize_event_data(event_name, data):
+        if event_name.startswith('account-credentials/account-credential:') or \
+                event_name.startswith('account-credentials/credential:'):
+            # drop AccountCredential.data
+            data = dict(data)
+            data.pop('data', None)
+        return data
 
 
 class ConnectionParameters(pika.URLParameters):
