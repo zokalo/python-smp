@@ -102,7 +102,7 @@ class SmpMqClient:
         log.info('Subscribed to %s', routing_key)
 
     def unsubscribe(self, event_name, owner_id='*', subowner_id='*'):
-        routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
+        routing_key = self.get_routing_key(event_name, owner_id, subowner_id) + '#'
         self.unsubscribe_by_routing_key(routing_key)
 
     @protect_from_disconnect
