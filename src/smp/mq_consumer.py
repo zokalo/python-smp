@@ -22,9 +22,9 @@ class SmpMqConsumer:
         self.unique_tuples.add((event_name, owner_id, subowner_id))
         self.funcs[event_name].append(func)
 
-    def forget(self, *event_names, timeout=5):
+    def forget(self, *event_names, owner_id='*', subowner_id='*', timeout=5):
         for event_name in event_names:
-            self.mq.unsubscribe(event_name)
+            self.mq.unsubscribe(event_name, owner_id, subowner_id)
 
             try:
                 del self.funcs[event_name]
