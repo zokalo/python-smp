@@ -121,9 +121,7 @@ class SmpMqClient:
     def publish(self, event_name, data=None, owner_id=None, subowner_id=None):
         routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
         self.connect()
-        if owner_id:
-            # if event can be received by some app, sanitize the data
-            data = self._sanitize_event_data(event_name, data)
+
         body = json.dumps(data, separators=(',', ':'))
         properties = pika.BasicProperties(
             content_type='application/json',
@@ -184,15 +182,6 @@ class SmpMqClient:
             channel.basic_reject(delivery_tag=method.delivery_tag, requeue=requeue)
         else:
             channel.basic_ack(delivery_tag=method.delivery_tag)
-
-    @staticmethod
-    def _sanitize_event_data(event_name, data):
-        if event_name.startswith('account-credentials/account-credential:') or \
-                event_name.startswith('account-credentials/credential:'):
-            # drop AccountCredential.data
-            data = dict(data)
-            data.pop('data', None)
-        return data
 
 
 class ConnectionParameters(pika.URLParameters):
