@@ -118,18 +118,22 @@ class SmpMqClient:
 
     @protect_from_disconnect
     @make_thread_safe
-    def publish(self, event_name, data=None, owner_id=None, subowner_id=None):
+    def publish(self, event_name, data=None, owner_id=None, subowner_id=None, headers=None):
         routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
         self.connect()
 
         body = json.dumps(data, separators=(',', ':'))
+
+        if headers is None:
+            headers = {}
+        headers['message-type'] = 'smp'
+        headers['event-name'] = event_name
+
         properties = pika.BasicProperties(
             content_type='application/json',
             delivery_mode=PERSISTENT_DELIVERY_MODE,
-            headers={
-                'message-type': 'smp',
-                'event-name': event_name,
-            })
+            headers=headers)
+
         self.channel.publish(exchange=self.main_exchange, routing_key=routing_key, body=body, properties=properties)
         log.info('Published %s', routing_key)
 
