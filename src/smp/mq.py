@@ -97,7 +97,7 @@ class SmpMqClient(object):
 
     @staticmethod
     def get_routing_key(event_name, owner_id='*', subowner_id='*'):
-        return '.'.join((event_name, owner_id, subowner_id, ''))
+        return '.'.join(str(i) for i in (event_name, owner_id, subowner_id, ''))
 
     @protect_from_disconnect
     @make_thread_safe
