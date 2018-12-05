@@ -20,7 +20,7 @@ class SmpApiRequest(ApiRequest):
         """
         params = kwargs.get('params', {})
         for param, value in params.items():
-            if param.endswith('__in') and isinstance(value, (set, list, tuple)):
+            if isinstance(value, (set, list, tuple)):
                 params[param] = ','.join(str(i) for i in value)
         return kwargs
 
