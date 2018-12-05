@@ -22,11 +22,10 @@ class SmpApiRequest(ApiRequest):
         """
         params = kwargs.get('params', {})
         for param, value in params.items():
-            if param.endswith('__in'):
-                if not value:
-                    self.empty = True
-                if isinstance(value, (set, list, tuple)):
-                    params[param] = ','.join(str(i) for i in value)
+            if param.endswith('__in') and not value:
+                self.empty = True
+            if isinstance(value, (set, list, tuple)):
+                params[param] = ','.join(str(i) for i in value)
         return kwargs
 
 
