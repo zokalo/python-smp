@@ -2,3 +2,4 @@
 PyJWT >= 1.6.4
 pika >= 0.11.2
 certifi
+raven >= 6.8.0
