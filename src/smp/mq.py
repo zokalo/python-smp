@@ -147,11 +147,11 @@ class SmpMqClient(object):
 
         try:
             if inactivity_timeout is None:
-                self.channel.basic_consume(my_callback, queue=self.queue, no_ack=False)
+                self.channel.basic_consume(on_message_callback=my_callback, queue=self.queue, auto_ack=False)
                 log.info('Starting consuming')
                 self.channel.start_consuming()
             else:
-                for method, properties, body in self.channel.consume(self.queue, no_ack=False,
+                for method, properties, body in self.channel.consume(queue=self.queue, auto_ack=False,
                                                                      inactivity_timeout=inactivity_timeout):
                     if (method, properties, body) == (None, None, None):
                         break
@@ -203,38 +203,15 @@ class ConnectionParameters(pika.URLParameters):
         url = url.replace('amqp+ssl://', 'amqps://')  # TODO: remove
         super(ConnectionParameters, self).__init__(url)
 
-        self.ssl_options = {
-            'server_hostname': self.host,
-            'context': {
-                'cafile': certifi.where(),
-                'check_hostname': True,
-            },
-        }
+        if self.ssl_options:
+            ssl_context = ssl.create_default_context(
+                cafile=certifi.where(),
+            )
+            ssl_context.check_hostname = True  # by default, but can change without prior deprecation
+            self.ssl_options = pika.connection.SSLOptions(
+                server_hostname=self.host,
+                context=ssl_context,
+            )
 
         if auth:
             self.credentials = pika.PlainCredentials(*auth)
-
-
-# =====================================================
-# Monkeypatch pika to support SSLContext.check_hostname
-# TODO: send pull request
-# =====================================================
-
-from pika.adapters.base_connection import BaseConnection  # noqa
-
-
-def _wrap_socket(self, sock):
-    ssl_options = self.params.ssl_options or {}
-    ctx_options = ssl_options.pop('context', None)
-
-    if ctx_options:
-        check_hostname = ctx_options.pop('check_hostname', False)
-        ctx = ssl.create_default_context(**ctx_options)
-        ctx.check_hostname = check_hostname
-        return ctx.wrap_socket(sock, do_handshake_on_connect=self.DO_HANDSHAKE, **ssl_options)
-    else:
-        return _original_wrap_socket(self, sock)
-
-
-_original_wrap_socket = BaseConnection._wrap_socket
-BaseConnection._wrap_socket = _wrap_socket
