@@ -145,11 +145,11 @@ class SmpMqClient:
 
         try:
             if inactivity_timeout is None:
-                self.channel.basic_consume(my_callback, queue=self.queue, no_ack=False)
+                self.channel.basic_consume(on_message_callback=my_callback, queue=self.queue, auto_ack=False)
                 log.info('Starting consuming')
                 self.channel.start_consuming()
             else:
-                for method, properties, body in self.channel.consume(self.queue, no_ack=False,
+                for method, properties, body in self.channel.consume(queue=self.queue, auto_ack=False,
                                                                      inactivity_timeout=inactivity_timeout):
                     if (method, properties, body) == (None, None, None):
                         break
@@ -201,14 +201,15 @@ class ConnectionParameters(pika.URLParameters):
         url = url.replace('amqp+ssl://', 'amqps://')  # TODO: remove
         super().__init__(url)
 
-        ssl_context = ssl.create_default_context(
-            cafile=certifi.where(),
-        )
-        ssl_context.check_hostname = True  # by default, but can change without prior deprecation
-        self.ssl_options = pika.connection.SSLOptions(
-            server_hostname=self.host,
-            context=ssl_context,
-        )
+        if self.ssl_options:
+            ssl_context = ssl.create_default_context(
+                cafile=certifi.where(),
+            )
+            ssl_context.check_hostname = True  # by default, but can change without prior deprecation
+            self.ssl_options = pika.connection.SSLOptions(
+                server_hostname=self.host,
+                context=ssl_context,
+            )
 
         if auth:
             self.credentials = pika.PlainCredentials(*auth)
