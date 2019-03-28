@@ -211,28 +211,3 @@ class ConnectionParameters(pika.URLParameters):
 
         if auth:
             self.credentials = pika.PlainCredentials(*auth)
-
-
-# =====================================================
-# Monkeypatch pika to support SSLContext.check_hostname
-# TODO: send pull request
-# =====================================================
-
-from pika.adapters.base_connection import BaseConnection  # noqa
-
-
-def _wrap_socket(self, sock):
-    ssl_options = self.params.ssl_options or {}
-    ctx_options = ssl_options.pop('context', None)
-
-    if ctx_options:
-        check_hostname = ctx_options.pop('check_hostname', False)
-        ctx = ssl.create_default_context(**ctx_options)
-        ctx.check_hostname = check_hostname
-        return ctx.wrap_socket(sock, do_handshake_on_connect=self.DO_HANDSHAKE, **ssl_options)
-    else:
-        return _original_wrap_socket(self, sock)
-
-
-_original_wrap_socket = BaseConnection._wrap_socket
-BaseConnection._wrap_socket = _wrap_socket
