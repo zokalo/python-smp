@@ -1,3 +1,4 @@
+import ssl
 import json
 import logging
 import functools
@@ -200,13 +201,14 @@ class ConnectionParameters(pika.URLParameters):
         url = url.replace('amqp+ssl://', 'amqps://')  # TODO: remove
         super().__init__(url)
 
-        self.ssl_options = {
-            'server_hostname': self.host,
-            'context': {
-                'cafile': certifi.where(),
-                'check_hostname': True,
-            },
-        }
+        ssl_context = ssl.create_default_context(
+            cafile=certifi.where(),
+        )
+        ssl_context.check_hostname = True  # by default, but can change without prior deprecation
+        self.ssl_options = pika.connection.SSLOptions(
+            server_hostname=self.host,
+            context=ssl_context,
+        )
 
         if auth:
             self.credentials = pika.PlainCredentials(*auth)
