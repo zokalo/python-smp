@@ -134,7 +134,7 @@ class SmpMqClient:
             delivery_mode=PERSISTENT_DELIVERY_MODE,
             headers=headers)
 
-        self.channel.publish(exchange=self.main_exchange, routing_key=routing_key, body=body, properties=properties)
+        self.channel.basic_publish(exchange=self.main_exchange, routing_key=routing_key, body=body, properties=properties)
         log.info('Published %s', routing_key)
 
     @protect_from_disconnect
