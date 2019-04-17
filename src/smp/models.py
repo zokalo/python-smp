@@ -29,3 +29,22 @@ class PageType(enum.IntEnum):
     group = 3
     event = 4
     bot = 5
+
+
+@enum.unique
+class ProxyAccident(enum.IntEnum):
+    unspecified = 0
+    connection_error = 1
+    write_timeout = 14
+    ip_blocked = 11
+    ig_checkpoint_required = 2
+    ig_checkpoint_challenge_recursion = 3
+    ig_password_reset = 4
+    ig_response_delay = 5
+    ig_caption_removed = 6
+    ig_locked = 7
+    ig_banned = 8
+    ig_post_removed = 9
+    ig_comment_removed = 10
+    ig_sentry_block = 12
+    ig_repeating_logout = 13
