@@ -20,6 +20,8 @@ class Medium(enum.IntEnum):
     vk = 15
     ok = 16
     bitly = 17
+    yandex = 18
+    pepper = 19
 
 
 @enum.unique
