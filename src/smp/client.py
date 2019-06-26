@@ -141,6 +141,8 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
 
 
 class MediaClient(SmpApiClient):
+    default_timeout = (120.1, None)
+
     def __init__(self, credential, *, session=None, base_url=None):
         super().__init__(base_url=base_url)
 
