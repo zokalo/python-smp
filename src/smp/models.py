@@ -87,6 +87,6 @@ class ProxyUsage(enum.IntEnum):
 
     ig_get_followers = 22
     ig_get_location_edges = 23
-    ig_get_tags_edges = 24
+    ig_get_tag_edges = 24
 
     ig_search_tags = 25
