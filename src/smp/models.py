@@ -84,3 +84,9 @@ class ProxyUsage(enum.IntEnum):
     ig_feed = 19
     ig_news = 20
     ig_direct_messages = 21
+
+    ig_get_followers = 22
+    ig_get_location_edges = 23
+    ig_get_tag_edges = 24
+
+    ig_search_tags = 25
