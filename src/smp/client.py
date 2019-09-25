@@ -39,7 +39,7 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
         if basic_auth is not None:
             self.session.auth = basic_auth
             if user_id is not None:
-                self.session.headers['X-SMP-UserId'] = user_id
+                self.session.headers['X-SMP-UserId'] = str(user_id)
 
     def get_media_client(self, credential):
         return MediaClient(credential, session=self.session, base_url=self.base_url)
