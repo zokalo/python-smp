@@ -218,3 +218,29 @@ class ConnectionParameters(pika.URLParameters):
 
         if auth:
             self.credentials = pika.PlainCredentials(*auth)
+
+        # On staging server mq_consumer get stuck and not receive new messages anymore
+        # without any log messages
+        # Found similar case:
+        #   https://github.com/zulip/docker-zulip/issues/225
+        # which is fixed using TCP_KEEPIDLE settings:
+        #   https://github.com/YashRE42/zulip/commit/d7708a48397b331523e1bd339d720252f1669212
+        #
+        # With BlockingConnection, we are passed
+        # self.rabbitmq_heartbeat=0, which asks to explicitly disable
+        # the RabbitMQ heartbeat feature.  This is correct since that
+        # heartbeat doesn't make sense with BlockingConnection (we do
+        # need it for TornadoConnection).
+        #
+        # Where we've disabled RabbitMQ's heartbeat, the only
+        # keepalive on this connection is the TCP keepalive (defaults:
+        # `/proc/sys/net/ipv4/tcp_keepalive_*`).  On most Linux
+        # systems, the default is to start sending keepalive packets
+        # after TCP_KEEPIDLE (7200 seconds) of inactivity; after that
+        # point, it send them every TCP_KEEPINTVL (typically 75s).
+        # Some Kubernetes / Docker Swarm networks can kill "idle" TCP
+        # connections after as little as ~15 minutes of inactivity.
+        # To avoid this killing our RabbitMQ connections, we set
+        # TCP_KEEPIDLE to something significantly below 15 minutes.
+        if self.heartbeat == 0:
+            self.tcp_options = dict(TCP_KEEPIDLE=60 * 5)
