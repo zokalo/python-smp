@@ -97,5 +97,5 @@ class ProxyUsage(enum.IntEnum):
     ig_get_followers_pending = 28
 
     ig_get_live_stream_key = 29
-    ig_start_live_streaming= 30
-    ig_end_live_streaming= 31
+    ig_start_live_streaming = 30
+    ig_end_live_streaming = 31
