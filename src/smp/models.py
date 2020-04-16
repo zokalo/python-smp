@@ -22,6 +22,7 @@ class Medium(enum.IntEnum):
     bitly = 17
     yandex = 18
     pepper = 19
+    youtube = 20
 
 
 @enum.unique
