@@ -23,6 +23,8 @@ class Medium(enum.IntEnum):
     yandex = 18
     pepper = 19
     youtube = 20
+    mytarget = 21
+    mytarget_sandbox = 22
 
 
 @enum.unique
