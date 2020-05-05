@@ -41,9 +41,8 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
             if user_id is not None:
                 self.session.headers['X-SMP-UserId'] = str(user_id)
 
-    def get_media_client(self, credential, client_service_name=None):
-        return MediaClient(credential, session=self.session, base_url=self.base_url,
-                           client_service_name=client_service_name)
+    def get_media_client(self, credential):
+        return MediaClient(credential, session=self.session, base_url=self.base_url)
 
     def wrap_with_media_client(self, func, account_page_id, permissions, fail_silently=False):
         """
@@ -142,7 +141,7 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
 
 
 class MediaClient(SmpApiClient):
-    def __init__(self, credential, *, session=None, base_url=None, client_service_name=None):
+    def __init__(self, credential, *, session=None, base_url=None):
         super().__init__(base_url=base_url)
 
         self.credential = copy.copy(credential)
@@ -155,7 +154,7 @@ class MediaClient(SmpApiClient):
                 'app_id': self.credential['app']['id']
             })
 
-        self.medium = client_service_name or self.credential['medium']
+        self.medium = self.credential['medium']
         self.base_url = self.base_url + f'client-{self.medium}/'
 
     def request(self, request, timeout=DEFAULT_TIMEOUT):
