@@ -150,7 +150,7 @@ class MediaClient(SmpApiClient):
 
         if not self.credential.get('app') and self.credential['app_id']:
             self.credential['app'] = self.get(f'apps/v1/by-id/{self.credential["app_id"]}')
-            self.credential['app']['credential'] = self.get_one(f'app-credentials/v1/credentials/', params={
+            self.credential['app']['credential'] = self.get_one('app-credentials/v1/credentials/', params={
                 'app_id': self.credential['app']['id']
             })
 
