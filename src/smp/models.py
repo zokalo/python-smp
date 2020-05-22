@@ -101,3 +101,23 @@ class ProxyUsage(enum.IntEnum):
     ig_get_live_stream_key = 29
     ig_start_live_streaming = 30
     ig_end_live_streaming = 31
+
+
+@enum.unique
+class MediumErrorType(enum.Enum):
+    """
+    Common medium error types and messages
+
+    NOTE:
+        Do not modify or remove exist enum names
+        without the agreement of all smp apps administrators
+        (this will be not a back compatible change).
+    """
+    ACCOUNT_LOCKED = 'Medium account suspended.'
+    ACTION_BLOCKED = 'Medium declined your request as suspicious (considered to be spam or automated).'
+    EXTERNAL_ERROR = 'Something wrong happened on medium side.'
+    INTERNAL_ERROR = 'A server error occurred.'
+    MEDIUM_REJECTS = 'Medium rejects your request.'
+    RATE_LIMIT = 'Medium limit exceeded.'
+    UNAUTHORIZED_CREDENTIAL = 'Unauthorized credential.'
+    INSUFFICIENT_PERMISSIONS = 'Medium declined your request due to insufficient permissions.'
