@@ -24,6 +24,8 @@ class Medium(enum.IntEnum):
     bitly = 17
     yandex = 18
     pepper = 19
+    youtube = 20
+    mytarget = 21
 
 
 @enum.unique
@@ -97,3 +99,34 @@ class ProxyUsage(enum.IntEnum):
 
     ig_approve_friendship = 27
     ig_get_followers_pending = 28
+
+    ig_get_live_stream_key = 29
+    ig_start_live_streaming = 30
+    ig_end_live_streaming = 31
+
+
+@enum.unique
+class MediumErrorType(enum.Enum):
+    """
+    Common medium error types and messages
+
+    NOTE:
+        Do not modify or remove exist enum names
+        without the agreement of all smp apps administrators
+        or without api version increment
+        (this will be a back incompatible change).
+    """
+    ACCOUNT_LOCKED = 'Medium account suspended.'
+    ACTION_BLOCKED = 'Medium declined your request as suspicious (considered to be spam, automated or duplicated).'
+    EXTERNAL_ERROR = 'Something wrong happened on medium side.'
+    INTERNAL_ERROR = 'A server error occurred.'
+    INSUFFICIENT_PERMISSIONS = 'Medium declined your request due to insufficient permissions.'
+    # common when reason is not specified
+    MEDIUM_REJECTS = 'Medium rejects your request.'
+    PUBLISH_VOID = 'No content for publish provided.'
+    RATE_LIMIT = 'Medium rate limit exceeded.'
+    TEXT_TOO_LONG = 'Medium text length limit exceeded.'
+    UNAUTHORIZED_CREDENTIAL = 'Unauthorized credential.'
+    UPLOAD_FORMAT_UNSUPPORTED = 'Medium is not support upload format.'
+    UPLOAD_SIZE_TOO_BIG = 'Medium upload size limit exceeded.'
+    UPLOAD_INVALID = 'There was a problem with the upload id.'

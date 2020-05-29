@@ -4,6 +4,7 @@ import copy
 import functools
 
 from .exceptions import NoMatchingCredential, MultipleObjectsReturned
+from .models import MediumErrorType
 
 from httpapiclient import BaseApiClient, DEFAULT_TIMEOUT, ApiRequest
 from httpapiclient.mixins import JsonResponseMixin, HelperMethodsMixin
@@ -82,8 +83,10 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
                 try:
                     return func(client, *args, **kwargs)
                 except MediaClient.ClientError as e:
-                    # TODO: use error codes
-                    if e.level == 'http' and e.code == 400 and e.data.get('detail') == 'Unauthorized credential':
+                    # TODO: drop detail support after release of all from https://github.com/smpio/smp/pull/34
+                    if e.level == 'http' and e.code == 400 and \
+                            (e.data.get('error_type') == MediumErrorType.UNAUTHORIZED_CREDENTIAL.name or
+                             e.data.get('detail') == 'Unauthorized credential'):
                         # this error publishes "account-credentials/account-credential" event
                         # which is handled by "account-credentials" service and credential is marked as "lost"
                         continue
@@ -165,7 +168,7 @@ class MediaClient(SmpApiClient):
             self.session = session
 
         if not self.credential.get('app') and self.credential['app_id']:
-            self.credential['app'] = self.get('apps/v1/by-id/' + self.credential['app_id'])
+            self.credential['app'] = self.get('apps/v1/by-id/{}'.format(self.credential['app_id']))
             self.credential['app']['credential'] = self.get_one('app-credentials/v1/credentials/', params={
                 'app_id': self.credential['app']['id']
             })
