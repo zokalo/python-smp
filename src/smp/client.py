@@ -1,5 +1,6 @@
 import copy
 import functools
+import json
 
 from .exceptions import NoMatchingCredential, MultipleObjectsReturned
 from .models import MediumErrorType
@@ -164,4 +165,19 @@ class MediaClient(SmpApiClient):
         if request.json is None:
             request.json = {}
         request.json.setdefault('credential', self.credential)
+        if request.files and request.json:
+            self._make_multipart_json(request)
         return super().request(request, timeout=timeout)
+
+    def _make_multipart_json(self, request):
+        """
+        Designed to send json data and files in single request
+        Target view must implement special parsing class for such cases, i.e.:
+            parser_classes = [MultipartJsonParser]
+        (smp-base-django repo: MultipartJsonParser from ./parsers/multipart_json_parser.py)
+        """
+        if request.data:
+            raise NotImplementedError(
+                '"data" already set, unable to update "data" with "json" content')
+        request.data = {'json': json.dumps(request.json, indent=None, separators=(',', ':'))}
+        request.json = None
