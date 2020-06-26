@@ -119,6 +119,7 @@ class MediumErrorType(enum.Enum):
     EXTERNAL_ERROR = 'Something wrong happened on medium side.'
     INTERNAL_ERROR = 'A server error occurred.'
     INSUFFICIENT_PERMISSIONS = 'Medium declined your request due to insufficient permissions.'
+    LINK_REJECTED = 'Link has been identified by medium as being potentially harmful.'
     # common when reason is not specified
     MEDIUM_REJECTS = 'Medium rejects your request.'
     PUBLISH_VOID = 'No content for publish provided.'
