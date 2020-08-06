@@ -39,6 +39,7 @@ def make_thread_safe(func):
             if not lock:
                 lock = threading.Lock()
                 client._lock = lock
+            # noinspection PyProtectedMember
             with client._lock:
                 return func(client, *args, **kwargs)
         else:
@@ -94,19 +95,19 @@ class SmpMqClient:
         return self._queue
 
     @staticmethod
-    def get_routing_key(event_name, owner_id='*', subowner_id='*'):
-        return f'{event_name}.{owner_id}.{subowner_id}.'
+    def get_routing_key(event_name, owner_id='*', subowner_id='*', group_id='*'):
+        return f'{event_name}.{owner_id}.{subowner_id}.{group_id}.'
 
     @protect_from_disconnect
     @make_thread_safe
-    def subscribe(self, event_name, owner_id='*', subowner_id='*'):
-        routing_key = self.get_routing_key(event_name, owner_id, subowner_id) + '#'
+    def subscribe(self, event_name, owner_id='*', subowner_id='*', group_id='*'):
+        routing_key = self.get_routing_key(event_name, owner_id, subowner_id, group_id) + '#'
         self.connect()
         self.channel.queue_bind(exchange=self.main_exchange, queue=self.queue, routing_key=routing_key)
         log.info('Subscribed to %s', routing_key)
 
-    def unsubscribe(self, event_name, owner_id='*', subowner_id='*'):
-        routing_key = self.get_routing_key(event_name, owner_id, subowner_id) + '#'
+    def unsubscribe(self, event_name, owner_id='*', subowner_id='*', group_id='*'):
+        routing_key = self.get_routing_key(event_name, owner_id, subowner_id, group_id) + '#'
         self.unsubscribe_by_routing_key(routing_key)
 
     @protect_from_disconnect
@@ -118,8 +119,8 @@ class SmpMqClient:
 
     @protect_from_disconnect
     @make_thread_safe
-    def publish(self, event_name, data=None, owner_id=None, subowner_id=None, headers=None):
-        routing_key = self.get_routing_key(event_name, owner_id, subowner_id)
+    def publish(self, event_name, data=None, owner_id=None, subowner_id=None, group_id=None, headers=None):
+        routing_key = self.get_routing_key(event_name, owner_id, subowner_id, group_id)
         self.connect()
 
         body = json.dumps(data, separators=(',', ':'))
@@ -164,6 +165,7 @@ class SmpMqClient:
     def _internal_callback(self, callback, channel, method, properties, body):
         force_reject = False
 
+        # noinspection PyBroadException
         try:
             message_type = properties.headers.get('message-type')
             if message_type == 'smp':

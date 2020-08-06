@@ -31,7 +31,7 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
     default_timeout = (6.1, None)
     request_class = SmpApiRequest
 
-    def __init__(self, *, base_url=None, basic_auth=None, user_id=None):
+    def __init__(self, *, base_url=None, basic_auth=None, user_id=None, group_id=None):
         super().__init__()
         if base_url is None:
             base_url = 'https://api.smp.io/'
@@ -40,6 +40,8 @@ class SmpApiClient(JsonResponseMixin, HelperMethodsMixin, BaseApiClient):
 
         if basic_auth is not None:
             self.session.auth = basic_auth
+            if group_id is not None:
+                self.session.headers['X-SMP-GroupId'] = str(group_id)
             if user_id is not None:
                 self.session.headers['X-SMP-UserId'] = str(user_id)
 
