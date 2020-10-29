@@ -24,6 +24,7 @@ class Medium(enum.IntEnum):
     pepper = 19
     youtube = 20
     mytarget = 21
+    smmplanner = 22
 
 
 @enum.unique
