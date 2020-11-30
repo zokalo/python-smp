@@ -24,6 +24,7 @@ class Medium(enum.IntEnum):
     pepper = 19
     youtube = 20
     mytarget = 21
+    smmplanner = 22
 
 
 @enum.unique
@@ -101,6 +102,9 @@ class ProxyUsage(enum.IntEnum):
     ig_get_live_stream_key = 29
     ig_start_live_streaming = 30
     ig_end_live_streaming = 31
+
+    ig_change_password = 32
+    ig_drop_sessions = 33
 
 
 @enum.unique
