@@ -103,6 +103,9 @@ class ProxyUsage(enum.IntEnum):
     ig_start_live_streaming = 30
     ig_end_live_streaming = 31
 
+    ig_change_password = 32
+    ig_drop_sessions = 33
+
 
 @enum.unique
 class MediumErrorType(enum.Enum):
