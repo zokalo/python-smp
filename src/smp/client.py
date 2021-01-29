@@ -159,7 +159,7 @@ class MediaClient(SmpApiClient):
             })
 
         self.medium = self.credential['medium']
-        self.base_url = self.base_url + f'client-{self.medium}/'
+        self.base_url = self.base_url + f'client-{self.medium.replace("_", "-")}/'
 
     def request(self, request, timeout=DEFAULT_TIMEOUT):
         if request.json is None:
